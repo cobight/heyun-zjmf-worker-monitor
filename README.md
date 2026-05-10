@@ -23,25 +23,58 @@ cloudflare-worker/
 cloudflare-worker/README.md
 ```
 
-## Worker 快速部署
+## 快速部署（5 步完成）
 
-```powershell
-git clone https://github.com/loqwe/heyun-zjmf-worker-monitor.git
-cd heyun-zjmf-worker-monitor\cloudflare-worker
-npm test
-npx wrangler@latest login
-npx wrangler@latest d1 create zjmf-monitor
-```
+无需修改任何代码或配置文件，即可部署专属于你的魔方财务监控实例。
 
-然后把 `d1 create` 输出的 `database_id` 填入 `cloudflare-worker/wrangler.toml`，继续执行：
+### 第 1 步 — Fork 仓库
 
-```powershell
-npx wrangler@latest secret put ADMIN_TOKEN
-npx wrangler@latest d1 migrations apply zjmf-monitor --remote
-npx wrangler@latest deploy
-```
+点击本仓库右上角的 **Fork** 按钮，创建你自己的副本。
 
-部署完成后，用 `cloudflare-worker/README.md` 里的初始化命令添加服务商、服务器和 pushplus 通知。
+### 第 2 步 — 创建 Cloudflare API Token
+
+前往 **Cloudflare Dashboard → API Tokens**，点击 **Create Token**，使用 **Edit Cloudflare Workers** 模板，并确认包含：
+
+| 权限 | 级别 |
+|------|------|
+| Account / Workers Scripts | Edit |
+| Account / D1 | Edit |
+| Account / Account Settings | Read |
+| User / User Details | Read |
+
+### 第 3 步 — 添加 GitHub Secrets
+
+进入你 Fork 的仓库 → **Settings → Secrets and variables → Actions → New repository secret**，添加：
+
+| Secret 名称 | 值 | 是否必填 |
+|-------------|----|----------|
+| `CLOUDFLARE_API_TOKEN` | 第 2 步获取的 Token | 必填 |
+| `ZJMF_ADMIN_TOKEN` | 任意强密码字符串 | 必填 |
+| `CLOUDFLARE_ACCOUNT_ID` | 你的 Cloudflare Account ID | 推荐 |
+| `ZJMF_API_ACCOUNT` | 魔方财务登录邮箱或手机号 | 可选，填后自动初始化 |
+| `ZJMF_API_PASSWORD` | 魔方财务 API 密钥 | 可选，填后自动初始化 |
+| `ZJMF_SERVER_ID` | 魔方财务产品 ID | 可选，填后自动初始化 |
+| `ZJMF_SERVER_IP` | 服务器 IP | 可选 |
+| `PUSHPLUS_TOKEN` | pushplus 用户 token | 可选 |
+
+### 第 4 步 — 运行 GitHub Actions
+
+进入 **Actions → Deploy to Cloudflare → Run workflow**。
+
+工作流会自动完成：
+
+- 创建或复用 D1 数据库
+- 执行 D1 迁移
+- 注入 `ADMIN_TOKEN` 为 Worker Secret
+- 部署 Worker（状态页 UI + API + 定时监控任务）
+- 如果填写了可选 Secrets，会自动添加服务商、服务器和 pushplus 通知
+
+### 第 5 步 — 访问你的状态页
+
+工作流成功后，在日志最后查看地址：
+
+- 状态页：`https://<你的仓库名>.<你的 workers.dev 子域>.workers.dev/`
+- API：`https://<你的仓库名>.<你的 workers.dev 子域>.workers.dev/api/status`
 
 ## 架构
 
