@@ -16,6 +16,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   default_daily_reboot_limit: 3,
   webhook_url: '',
   webhook_type: 'custom',
+  webhook_timeout: 10000,
+  webhook_headers: '{\n  "Content-Type": "application/json"\n}',
+  webhook_template: '{{message}}',
 });
 
 export const TRANSITION_LABELS = Object.freeze({

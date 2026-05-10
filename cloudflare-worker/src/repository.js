@@ -28,6 +28,9 @@ export class D1Repository {
       default_daily_reboot_limit: numberSetting(raw.default_daily_reboot_limit, DEFAULT_SETTINGS.default_daily_reboot_limit),
       webhook_url: raw.webhook_url || '',
       webhook_type: raw.webhook_type || 'custom',
+      webhook_timeout: numberSetting(raw.webhook_timeout, DEFAULT_SETTINGS.webhook_timeout),
+      webhook_headers: raw.webhook_headers || DEFAULT_SETTINGS.webhook_headers,
+      webhook_template: raw.webhook_template || DEFAULT_SETTINGS.webhook_template,
       pushplus_token: raw.pushplus_token || '',
       timezone: raw.timezone || 'Asia/Shanghai',
     };

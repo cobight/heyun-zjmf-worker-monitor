@@ -13,6 +13,11 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /监控项/);
   assert.match(html, /事件日志/);
   assert.match(html, /新建监控项/);
+  assert.match(html, /编辑通知渠道/);
+  assert.match(html, /在状态页显示/);
+  assert.match(html, /魔方财务 API/);
+  assert.match(html, /webhook_headers/);
+  assert.match(html, /webhook_template/);
   assert.match(html, /id="editModal"/);
   assert.match(html, /保存服务商/);
   assert.match(html, /保存服务器/);
