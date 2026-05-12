@@ -44,9 +44,13 @@ function availability(server) {
 
 function bars(server, count = 60) {
   const ok = (server.state || 'unknown') === 'healthy';
+  const state = stateLabel(server.state);
+  const speed = latency(server).avg;
+  const tip = escapeHtml(`${fmtTime(server.last_check_time)}\n● ${state} · ${speed}`);
   return Array.from({ length: count }, (_, index) => {
-    const tall = index > 42 ? 22 : 13 + (index % 4);
-    return `<span class="${ok ? 'ok' : 'bad'}" style="height:${tall}px"></span>`;
+    const tall = index > 42 ? 23 : 9 + ((index * 7) % 19);
+    const active = index === count - 1 ? ' active' : '';
+    return `<span class="${ok ? 'ok' : 'bad'}${active}" style="height:${tall}px" data-tip="${tip}" tabindex="0"></span>`;
   }).join('');
 }
 
@@ -61,15 +65,15 @@ function row(server) {
   const safeName = escapeHtml(displayName(server));
   const stats = latency(server);
   const method = checkMethod(server);
-  return `<article class="status-card status-card--${state}">
+  return `<article class="status-card status-card--${state}" role="listitem">
     <div class="card-head">
-      <div class="name-row"><span class="dot"></span><div><h2>${safeName}</h2><p>${method}</p></div></div>
+      <div class="name-row"><span class="dot"></span><div><h3>${safeName}</h3><p>${method}</p></div></div>
       <div class="badges"><span class="uptime">● ${availability(server)}</span><span class="state">${stateLabel(state)}</span></div>
     </div>
     <p class="caption">近 30 天可用性</p>
-    <div class="uptime-track"><span style="width:${availability(server)}"></span></div>
+    <div class="uptime-track"><span style="width:${availability(server)}"></span><b>${availability(server)}</b></div>
     <p class="caption">最近 60 次探测</p>
-    <div class="probe-bars">${bars(server)}</div>
+    <div class="probe-bars" aria-label="最近探测详情">${bars(server)}</div>
     <div class="card-foot"><span>最快 ${stats.best}</span><span>平均 ${stats.avg}</span><span>最慢 ${stats.worst}</span><span>${fmtTime(server.last_check_time).slice(-5)}</span></div>
     <div class="sr-meta">24 小时重启 ${server.reboot_count_today ?? 0} 次；最后重启 ${fmtTime(server.last_reboot_time)}</div>
   </article>`;
@@ -78,7 +82,9 @@ function row(server) {
 export function renderStatusPage(servers) {
   const healthy = servers.filter((s) => s.state === 'healthy').length;
   const problem = servers.length - healthy;
-  const cards = servers.length ? servers.map(row).join('') : '<p class="empty">暂无启用的监控服务器。</p>';
+  const cards = servers.length
+    ? `<section class="service-group"><h2 class="service-title">服务</h2><h2 class="group-title">未分组</h2><div class="grid" role="list">${servers.map(row).join('')}</div></section>`
+    : '<p class="empty">暂无启用的监控服务器。</p>';
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -86,29 +92,16 @@ export function renderStatusPage(servers) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ZJMF 服务器监控</title>
   <style>
-    :root{--bg:#0b1020;--panel:#1f2a3d;--ink:#f3f7ff;--muted:#88a0c2;--line:#31415c;--ok:#20d39b;--bad:#ff5d73;--warn:#fbbf24;--cyan:#38bdf8}
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:radial-gradient(circle at 18% 0,rgba(56,189,248,.14),transparent 30%),linear-gradient(180deg,#0b1020,#0d1426 68%,#08101f);color:var(--ink);font-family:"Bahnschrift","Aptos Display","Trebuchet MS",sans-serif}
-    body:before{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(23,32,51,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(23,32,51,.055) 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(to bottom,#000,transparent 88%);pointer-events:none}
-    main{position:relative;width:min(1120px,calc(100% - 36px));margin:0 auto;padding:54px 0}
-    .pageNav{display:flex;justify-content:flex-end;margin-bottom:22px}.adminLink{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(23,32,51,.16);background:#111827;color:#fff;text-decoration:none;border-radius:16px;padding:13px 18px;font-weight:800;box-shadow:0 16px 38px rgba(23,32,51,.16)}
-    .adminLink:before{content:"";width:8px;height:8px;border-radius:999px;background:#34d399;box-shadow:0 0 0 4px rgba(52,211,153,.18)}
-    .hero{display:grid;grid-template-columns:1.4fr .8fr;gap:24px;align-items:end;margin-bottom:26px}
-    .tag{display:inline-flex;gap:8px;align-items:center;color:var(--cyan);letter-spacing:.22em;font-size:12px;text-transform:uppercase}
-    h1{font-size:clamp(36px,7vw,82px);line-height:.92;margin:14px 0 12px;letter-spacing:-.07em}
-    .lead{color:var(--muted);font-size:17px;line-height:1.7;margin:0;max-width:640px}
-    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    .stat{padding:18px;border:1px solid var(--line);background:rgba(31,42,61,.82);backdrop-filter:blur(14px);border-radius:22px;box-shadow:0 14px 40px rgba(0,0,0,.2)}
-    .stat b{display:block;font-size:30px}.stat span{color:var(--muted);font-size:13px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
-    .status-card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(31,42,61,.98),rgba(27,38,56,.98));box-shadow:0 26px 70px rgba(0,0,0,.25);border-radius:28px;padding:22px;animation:rise .5s ease both}
-    .status-card--healthy{border-color:rgba(32,211,155,.24)}.status-card--down,.status-card--recovering,.status-card--rebooting{border-color:rgba(255,93,115,.42)}
-    .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.name-row{display:flex;gap:14px;align-items:flex-start}.dot{width:11px;height:11px;border-radius:99px;background:var(--ok);margin-top:9px;box-shadow:0 0 18px rgba(32,211,155,.75)}
-    .status-card--down .dot,.status-card--rebooting .dot{background:var(--bad);box-shadow:0 0 18px rgba(255,93,115,.7)}h2{margin:0;font-size:26px}.name-row p{margin:3px 0 0;color:#b7c5dc}.badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.uptime,.state{border:1px solid rgba(32,211,155,.28);background:rgba(6,95,70,.25);color:#c9ffe9;border-radius:999px;padding:6px 12px;font-size:14px}
-    .caption{color:var(--muted);margin:20px 0 10px}.uptime-track{height:32px;border-radius:8px;background:#34445c;overflow:hidden}.uptime-track span{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#1fcf96,#21d39b)}
-    .probe-bars{height:34px;background:#34445c;border-radius:8px;padding:7px 6px;display:flex;gap:5px;align-items:end}.probe-bars span{display:block;width:7px;border-radius:2px}.probe-bars .ok{background:#16c98d}.probe-bars .bad{background:#ff5d73}.card-foot{display:flex;gap:18px;flex-wrap:wrap;color:#8fa7c8;margin-top:12px}.sr-meta{font-size:12px;color:#6f85a8;margin-top:10px}
-    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0 0}.metrics div{padding:14px;border-radius:18px;background:#172033}dt{color:var(--muted);font-size:12px}dd{margin:6px 0 0;font-weight:700;word-break:break-all}.empty{padding:28px;border:1px dashed var(--line);border-radius:22px;color:var(--muted)}
-    footer{margin-top:26px;color:var(--muted);font-size:13px}.api{color:var(--cyan);text-decoration:none}
-    @keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}@media(max-width:760px){.hero{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:1fr}}
+    :root{--bg:#f6f8fb;--panel:#fff;--ink:#0f1b2d;--muted:#7b8da8;--line:#d9e2ef;--track:#e8eef7;--ok:#10c98f;--bad:#ef5267;--warn:#f59e0b;--blue:#2563eb}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 12% 0,rgba(16,201,143,.12),transparent 28%),linear-gradient(180deg,#fff,var(--bg));color:var(--ink);font-family:"Bahnschrift","Aptos Display","Microsoft YaHei UI",sans-serif}
+    main{width:min(760px,calc(100% - 32px));margin:0 auto;padding:54px 0}.pageNav{display:flex;justify-content:flex-end;margin-bottom:22px}.adminLink{border:1px solid var(--line);background:#fff;color:#0f1b2d;text-decoration:none;border-radius:999px;padding:10px 16px;font-weight:800;box-shadow:0 12px 28px rgba(15,27,45,.08)}
+    .hero{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:24px}.tag{color:#0b9f75;letter-spacing:.18em;font-size:12px;font-weight:900;text-transform:uppercase}h1{font-size:34px;margin:10px 0 6px;letter-spacing:-.05em}.lead{color:var(--muted);line-height:1.65;margin:0}.summary{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.stat{min-width:86px;padding:12px 14px;border:1px solid var(--line);background:#fff;border-radius:18px;box-shadow:0 14px 36px rgba(15,27,45,.07)}.stat b{display:block;font-size:24px}.stat span{color:var(--muted);font-size:12px}
+    .service-title{font-size:28px;margin:22px 0 12px}.group-title{font-size:22px;margin:0 0 10px}.grid{display:grid;gap:16px}.status-card{border:1px solid #cfd9e8;background:linear-gradient(180deg,#fff,#f9fbff);box-shadow:0 22px 55px rgba(15,27,45,.10);border-radius:22px;padding:22px;animation:rise .45s ease both}.status-card--healthy{border-color:#b9e9d9}.status-card--down,.status-card--recovering,.status-card--rebooting{border-color:#ffc4cc}
+    .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.name-row{display:flex;gap:14px;align-items:flex-start}.dot{width:11px;height:11px;border-radius:99px;background:var(--ok);margin-top:10px;box-shadow:0 0 0 5px rgba(16,201,143,.13)}.status-card--down .dot,.status-card--rebooting .dot{background:var(--bad);box-shadow:0 0 0 5px rgba(239,82,103,.13)}h3{margin:0;font-size:25px}.name-row p{margin:4px 0 0;color:#5f718c}.badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.uptime,.state{border:1px solid #b8ecd8;background:#ecfdf6;color:#047857;border-radius:999px;padding:5px 12px;font-size:14px}
+    .caption{color:var(--muted);margin:22px 0 10px}.uptime-track{position:relative;height:32px;border-radius:8px;background:var(--track);overflow:hidden}.uptime-track span{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#34d399,#10c98f)}.uptime-track b{position:absolute;right:10px;top:7px;font-size:13px;color:#047857}
+    .probe-bars{height:34px;background:var(--track);border-radius:8px;padding:7px 6px;display:flex;gap:5px;align-items:end}.probe-bars span{position:relative;display:block;width:7px;border-radius:2px;outline:0}.probe-bars .ok{background:#10c98f}.probe-bars .bad{background:var(--bad)}.probe-bars span:hover:after,.probe-bars span:focus:after{content:attr(data-tip);position:absolute;left:50%;bottom:30px;transform:translateX(-50%);z-index:5;white-space:pre;min-width:180px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 36px rgba(15,27,45,.16);border-radius:12px;padding:10px 12px;color:var(--ink);font-size:13px}.probe-bars span:hover:before,.probe-bars span:focus:before{content:"";position:absolute;left:50%;bottom:24px;border:7px solid transparent;border-top-color:#fff;transform:translateX(-50%)}
+    .card-foot{display:flex;gap:18px;flex-wrap:wrap;color:#6f819c;margin-top:12px}.sr-meta{font-size:12px;color:#8ba0bd;margin-top:10px}.empty{padding:28px;border:1px dashed var(--line);border-radius:22px;color:var(--muted);background:#fff}footer{margin-top:26px;color:var(--muted);font-size:13px}.api{color:var(--blue);text-decoration:none}
+    @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}@media(max-width:760px){.hero{display:block}.summary{justify-content:flex-start;margin-top:16px}.card-head{display:block}.badges{justify-content:flex-start;margin-top:12px}}
   </style>
 </head>
 <body>
@@ -118,7 +111,7 @@ export function renderStatusPage(servers) {
       <div><span class="tag">ZJMF Monitor</span><h1>核云服务器<br>自动监控</h1><p class="lead">Cloudflare Worker 按探测间隔执行 API / HTTP(S) / TCP 检测；连续失败 3 次后确认异常并执行硬重启。</p></div>
       <div class="summary"><div class="stat"><b>${servers.length}</b><span>监控项</span></div><div class="stat"><b>${healthy}</b><span>正常</span></div><div class="stat"><b>${problem}</b><span>异常/恢复中</span></div></div>
     </section>
-    <section class="grid">${cards}</section>
+    ${cards}
     <footer>数据接口：<a class="api" href="/api/status">/api/status</a></footer>
   </main>
 </body>

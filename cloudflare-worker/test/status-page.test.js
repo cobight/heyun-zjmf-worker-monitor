@@ -19,10 +19,14 @@ test('状态页渲染服务器状态并转义 HTML', () => {
   ]);
 
   assert.match(html, /ZJMF 服务器监控/);
-  assert.match(html, /--bg:#0b1020/);
+  assert.match(html, /--bg:#f6f8fb/);
+  assert.match(html, /服务/);
+  assert.match(html, /未分组/);
   assert.match(html, /status-card/);
   assert.match(html, /近 30 天可用性/);
   assert.match(html, /最近 60 次探测/);
+  assert.match(html, /data-tip=/);
+  assert.match(html, /aria-label="最近探测详情"/);
   assert.match(html, /tcp/);
   assert.match(html, /管理面板/);
   assert.match(html, /href="\/admin"/);
