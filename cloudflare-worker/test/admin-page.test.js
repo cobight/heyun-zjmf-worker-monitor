@@ -20,6 +20,7 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /id="setupStep"/);
   assert.match(html, /下一步/);
   assert.match(html, /上一步/);
+  assert.match(html, /class="toplinks"[\s\S]*分析[\s\S]*状态页[\s\S]*退出登录/);
   assert.match(html, /自动获取产品列表/);
   assert.match(html, /魔方财务登录邮箱或手机号/);
   assert.match(html, /魔方财务产品 ID/);
@@ -37,6 +38,14 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /事件日志/);
   assert.match(html, /新建监控项/);
   assert.match(html, /通知渠道/);
+  assert.match(html, /系统更新/);
+  assert.match(html, /data-tab="update"/);
+  assert.match(html, /检查更新/);
+  assert.match(html, /确定更新/);
+  assert.match(html, /updateInfo/);
+  assert.match(html, /\/api\/admin\/update\/check/);
+  assert.match(html, /\/api\/admin\/update\/dispatch/);
+  assert.match(html, /GitHub Actions/);
   assert.match(html, /新建通知渠道/);
   assert.match(html, /编辑通知渠道/);
   assert.match(html, /id="notifyRows"/);
@@ -47,6 +56,11 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /魔方财务 API/);
   assert.match(html, /HTTP\(S\)/);
   assert.match(html, /TCP 端口/);
+  assert.match(html, /HTTP 方法/);
+  assert.match(html, /期望状态码/);
+  assert.match(html, /name="http_method"/);
+  assert.match(html, /name="http_expected_status"/);
+  assert.match(html, /如果接口返回 IP，会自动带出 TCP 主机/);
   assert.match(html, /三步检测：HTTP\(S\) \+ TCP \+ API/);
   assert.match(html, /连续失败 3 次/);
   assert.match(html, /webhook_headers/);
@@ -68,6 +82,8 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /background-size:50px 50px/);
   assert.match(html, /--bg:#f5f7fb/);
   assert.match(html, /管理后台登录后会显示/);
+  assert.doesNotMatch(html, /1 密码.*2 魔方财务.*3 监控参数.*4 通知渠道/);
+  assert.match(html, /old_password/);
   assert.match(html, /localStorage\.getItem\('zjmf_admin_token'\)/);
   assert.doesNotMatch(html, /if\(token\)enter\(\)\.catch/);
   assert.match(html, /startSetupBtn/);
@@ -79,4 +95,7 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.doesNotMatch(html, /删除功能暂未开放/);
   assert.doesNotMatch(html, /定时重启|scheduled_reboot/);
   assert.doesNotMatch(html, /维护策略|maintenanceView|data-tab="maintenance"/);
+  assert.match(html, /<option value="service_then_power" selected>/);
+  assert.match(html, /通知开关/);
+  assert.match(html, /卡片式通知设置/);
 });

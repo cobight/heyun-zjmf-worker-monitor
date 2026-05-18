@@ -14,21 +14,24 @@ async function post(path, body) {
   return res.json();
 }
 
-function required(name) {
-  const value = process.env[name] || '';
-  if (!value) throw new Error(`Missing ${name}`);
-  return value;
-}
-
 if (!baseUrl) throw new Error('Missing worker URL');
+
+if (process.env.GITHUB_REPOSITORY) {
+  await post('/api/admin/settings', {
+    github_repo: process.env.GITHUB_REPOSITORY,
+    github_branch: process.env.GITHUB_REF_NAME || 'main',
+    github_workflow_file: process.env.GITHUB_WORKFLOW_FILE || 'deploy.yml',
+  });
+}
 
 const apiAccount = process.env.ZJMF_API_ACCOUNT || '';
 const apiPassword = process.env.ZJMF_API_PASSWORD || '';
 const serverId = process.env.ZJMF_SERVER_ID || '';
 
-required('ZJMF_API_ACCOUNT');
-required('ZJMF_API_PASSWORD');
-required('ZJMF_SERVER_ID');
+if (!apiAccount || !apiPassword || !serverId) {
+  console.log('Seed complete. Monitor config skipped.');
+  process.exit(0);
+}
 
 const provider = process.env.ZJMF_PROVIDER || 'heyunidc';
 const serverIp = process.env.ZJMF_SERVER_IP || '';

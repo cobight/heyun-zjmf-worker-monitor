@@ -222,7 +222,7 @@ export class D1Repository {
       INSERT INTO servers (id,name,ip,provider,check_method,enabled,daily_reboot_limit,scheduled_reboot,http_url,http_method,http_expected_status,tcp_host,tcp_port,probe_timeout_ms,recovery_action,created_at,updated_at)
       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?16)
       ON CONFLICT(id) DO UPDATE SET name=excluded.name,ip=excluded.ip,provider=excluded.provider,check_method=excluded.check_method,enabled=excluded.enabled,daily_reboot_limit=excluded.daily_reboot_limit,scheduled_reboot=excluded.scheduled_reboot,http_url=excluded.http_url,http_method=excluded.http_method,http_expected_status=excluded.http_expected_status,tcp_host=excluded.tcp_host,tcp_port=excluded.tcp_port,probe_timeout_ms=excluded.probe_timeout_ms,recovery_action=excluded.recovery_action,updated_at=excluded.updated_at
-    `).bind(server.id, server.name, server.ip || '', server.provider, server.check_method || 'api_only', server.enabled === false ? 0 : 1, server.daily_reboot_limit || 0, '', server.http_url || '', server.http_method || 'GET', server.http_expected_status || '200-399', server.tcp_host || '', Number(server.tcp_port || 0), Number(server.probe_timeout_ms || 10000), server.recovery_action || 'reboot', now).run();
+    `).bind(server.id, server.name, server.ip || '', server.provider, server.check_method || 'service_then_power', server.enabled === false ? 0 : 1, server.daily_reboot_limit || 0, '', server.http_url || '', server.http_method || 'GET', server.http_expected_status || '200-399', server.tcp_host || '', Number(server.tcp_port || 0), Number(server.probe_timeout_ms || 10000), server.recovery_action || 'reboot', now).run();
   }
 
   async deleteServer(id) {

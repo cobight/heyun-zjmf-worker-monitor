@@ -4,7 +4,9 @@ setlocal EnableExtensions
 
 cd /d "%~dp0"
 set "SCRIPT_DIR=%CD%"
-set "REMOTE_BASE=https://raw.githubusercontent.com/loqwe/heyun-zjmf-worker-monitor/main/windows-one-click-deploy"
+set "UPSTREAM_REPO=loqwe/heyun-zjmf-worker-monitor"
+set "GITHUB_REPO_URL=https://github.com/%UPSTREAM_REPO%"
+set "REMOTE_BASE=https://raw.githubusercontent.com/%UPSTREAM_REPO%/main/windows-one-click-deploy"
 set "STEP2_FILE=%SCRIPT_DIR%\步骤2-一键部署.bat"
 set "PS1_FILE=%SCRIPT_DIR%\deploy-one-click.ps1"
 set "EXAMPLE_FILE=%SCRIPT_DIR%\one-click.config.example.jsonc"
@@ -25,6 +27,7 @@ echo.
 echo ========================================
 echo heyun-zjmf-worker-monitor 步骤1-一键安装
 echo ========================================
+echo GitHub 仓库地址：%GITHUB_REPO_URL%
 echo 检查依赖、下载部署文件，然后启动步骤2。
 echo.
 

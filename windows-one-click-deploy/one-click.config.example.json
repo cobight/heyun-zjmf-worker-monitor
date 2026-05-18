@@ -4,6 +4,7 @@
   "d1DatabaseName": "zjmf-monitor",
   "cloudflareAccountId": "",
   "adminToken": "请填写强密码",
+  "webUpdateGitHubToken": "",
   "providerName": "heyunidc",
   "providerDisplayName": "核云",
   "zjmfApiBaseUrl": "https://www.heyunidc.cn/v1",

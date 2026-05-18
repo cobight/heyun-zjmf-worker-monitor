@@ -25,6 +25,7 @@ jobs:
       ZJMF_SERVER_IP: ${{ secrets.ZJMF_SERVER_IP }}
       ZJMF_SERVER_NAME: ${{ secrets.ZJMF_SERVER_NAME }}
       PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+      WEB_UPDATE_GITHUB_TOKEN: ${{ secrets.WEB_UPDATE_GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -55,6 +56,11 @@ jobs:
         shell: bash
         run: printf "%s" "$ADMIN_TOKEN" | npx wrangler@latest secret put ADMIN_TOKEN
 
+      - name: Upload web update GitHub token
+        if: ${{ env.WEB_UPDATE_GITHUB_TOKEN != '' }}
+        shell: bash
+        run: printf "%s" "$WEB_UPDATE_GITHUB_TOKEN" | npx wrangler@latest secret put GITHUB_TOKEN
+
       - name: Deploy Worker
         id: deploy
         shell: bash
@@ -71,6 +77,5 @@ jobs:
           echo "Admin UI: ${{ steps.deploy.outputs.worker_url }}/admin"
           echo "Status API: ${{ steps.deploy.outputs.worker_url }}/api/status"
 
-      - name: Optional seed monitor config
-        if: ${{ env.ZJMF_API_ACCOUNT != '' && env.ZJMF_API_PASSWORD != '' && env.ZJMF_SERVER_ID != '' }}
+      - name: Seed runtime config
         run: node scripts/seed-worker.mjs "${{ steps.deploy.outputs.worker_url }}"

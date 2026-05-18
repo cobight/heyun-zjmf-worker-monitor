@@ -121,6 +121,11 @@ class FakeD1 {
 function env(overrides = {}) {
   return {
     ADMIN_TOKEN: 'admin-password',
+    GITHUB_TOKEN: overrides.GITHUB_TOKEN,
+    GITHUB_REPOSITORY: overrides.GITHUB_REPOSITORY || 'loqwe/heyun-zjmf-worker-monitor',
+    GITHUB_BRANCH: overrides.GITHUB_BRANCH || 'main',
+    GITHUB_WORKFLOW_FILE: overrides.GITHUB_WORKFLOW_FILE || 'deploy.yml',
+    APP_VERSION: overrides.APP_VERSION || 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     fetcher: overrides.fetcher,
     DB: new FakeD1({
       settings: {
@@ -202,18 +207,30 @@ test('管理后台可以修改登录密码', async () => {
   const res = await handleRequest(new Request('https://worker.example/api/admin/password', {
     method: 'POST',
     headers: { authorization: 'Bearer admin-password', 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ password: 'changed-password' }),
+    body: JSON.stringify({ old_password: 'admin-password', password: 'changed-password' }),
   }), testEnv);
 
   assert.equal(res.status, 200);
   assert.equal(testEnv.DB.data.settings.admin_token_hash, sha256('changed-password'));
 });
 
+test('管理后台修改登录密码时旧密码错误会拒绝', async () => {
+  const testEnv = env();
+  const res = await handleRequest(new Request('https://worker.example/api/admin/password', {
+    method: 'POST',
+    headers: { authorization: 'Bearer admin-password', 'content-type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ old_password: 'wrong-password', password: 'changed-password' }),
+  }), testEnv);
+
+  assert.equal(res.status, 400);
+  assert.equal(testEnv.DB.data.settings.admin_token_hash, undefined);
+});
+
 test('管理后台可以自动获取魔方财务产品列表', async () => {
   const testEnv = env({
     fetcher: async (url) => {
       if (String(url).includes('login_api')) return new Response(JSON.stringify({ jwt: 'jwt-1' }));
-      return new Response(JSON.stringify({ data: { host: [{ id: '4075', name: '主服务器', ip: '203.0.113.10' }] } }));
+      return new Response(JSON.stringify({ data: { host: [{ id: '4075', name: '主服务器', ip: '203.0.113.10', port: 996 }] } }));
     },
   });
   const res = await handleRequest(new Request('https://worker.example/api/admin/zjmf/hosts', {
@@ -226,7 +243,9 @@ test('管理后台可以自动获取魔方财务产品列表', async () => {
   assert.equal(res.status, 200);
   assert.equal(data.hosts[0].id, '4075');
   assert.equal(data.hosts[0].name, '主服务器');
-  assert.equal(data.hosts[0].ip, undefined);
+  assert.equal(data.hosts[0].ip, '203.0.113.10');
+  assert.equal(data.hosts[0].tcp_host, '203.0.113.10');
+  assert.equal(data.hosts[0].tcp_port, 996);
 });
 
 test('初始化接口一次保存服务商、服务器、监控参数和通知设置', async () => {
@@ -236,7 +255,7 @@ test('初始化接口一次保存服务商、服务器、监控参数和通知�
     headers: { authorization: 'Bearer admin-password', 'content-type': 'application/json; charset=utf-8' },
     body: JSON.stringify({
       provider: { name: 'heyunidc', display_name: '核云', api_base_url: 'https://api.example/v1', api_account: 'acct', api_password: 'key' },
-      server: { id: '4075', name: '主服务器', provider: 'heyunidc', check_method: 'api_only', daily_reboot_limit: 5 },
+      server: { id: '4075', name: '主服务器', provider: 'heyunidc', daily_reboot_limit: 5 },
       settings: { check_interval: 120, api_timeout_ms: 15000 },
       notification: { enabled: true, type: 'pushplus', pushplus_token: 'push-token' },
     }),
@@ -245,6 +264,7 @@ test('初始化接口一次保存服务商、服务器、监控参数和通知�
   assert.equal(res.status, 200);
   assert.equal(testEnv.DB.data.providerWrites[0].api_account, 'acct');
   assert.equal(testEnv.DB.data.serverWrites[0].id, '4075');
+  assert.equal(testEnv.DB.data.serverWrites[0].check_method, 'service_then_power');
   assert.equal(testEnv.DB.data.settings.check_interval, '120');
   assert.equal(testEnv.DB.data.settings.api_timeout, '15');
   assert.equal(testEnv.DB.data.settings.pushplus_token, 'push-token');
@@ -466,4 +486,51 @@ test('已有服务商保存时允许 API 密钥留空并保留旧密钥', async 
 
   assert.equal(res.status, 200);
   assert.equal(testEnv.DB.data.providerWrites[0].api_password, 'provider-secret');
+});
+
+test('系统更新检查会读取 GitHub 最新提交并返回更新状态', async () => {
+  const calls = [];
+  const testEnv = env({
+    APP_VERSION: '1111111111111111111111111111111111111111',
+    fetcher: async (input, init = {}) => {
+      calls.push({ input: String(input), init });
+      return new Response(JSON.stringify({
+        sha: '2222222222222222222222222222222222222222',
+        commit: { message: 'feat: 更新页面' },
+      }));
+    },
+  });
+  const res = await handleRequest(new Request('https://worker.example/api/admin/update/check', {
+    headers: { authorization: 'Bearer admin-password' },
+  }), testEnv);
+  const data = await res.json();
+
+  assert.equal(res.status, 200);
+  assert.equal(data.configured, true);
+  assert.equal(data.update_available, true);
+  assert.equal(data.current_sha, '1111111111111111111111111111111111111111');
+  assert.equal(data.latest_sha, '2222222222222222222222222222222222222222');
+  assert.match(calls[0].input, /api\.github\.com\/repos\/loqwe\/heyun-zjmf-worker-monitor\/commits\/main/);
+});
+
+test('系统更新确认会触发 GitHub Actions workflow_dispatch', async () => {
+  const calls = [];
+  const testEnv = env({
+    GITHUB_TOKEN: 'ghp-test-token',
+    fetcher: async (input, init = {}) => {
+      calls.push({ input: String(input), init });
+      return new Response(null, { status: 204 });
+    },
+  });
+  const res = await handleRequest(new Request('https://worker.example/api/admin/update/dispatch', {
+    method: 'POST',
+    headers: { authorization: 'Bearer admin-password' },
+  }), testEnv);
+  const data = await res.json();
+
+  assert.equal(res.status, 200);
+  assert.equal(data.ok, true);
+  assert.match(calls[0].input, /api\.github\.com\/repos\/loqwe\/heyun-zjmf-worker-monitor\/actions\/workflows\/deploy\.yml\/dispatches/);
+  assert.deepEqual(JSON.parse(calls[0].init.body), { ref: 'main' });
+  assert.match(String(calls[0].init.headers.authorization), /Bearer ghp-test-token/);
 });

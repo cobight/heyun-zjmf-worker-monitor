@@ -141,6 +141,9 @@ function Get-DefaultConfigText {
   // 管理后台网站密码；双击 BAT 交互部署时会要求输入两次
   "adminToken": "请填写强密码",
 
+  // 可选：网页“系统更新”触发 GitHub Actions 用的 Fine-grained PAT
+  "webUpdateGitHubToken": "",
+
   // 魔方财务配置；可留空，部署后到 /admin 初始化向导填写
   "providerName": "heyunidc",
   "providerDisplayName": "核云",
@@ -420,6 +423,8 @@ function Seed-MonitorConfig($BaseUrl, $AdminToken, $Config) {
     $apiAccount = Get-ConfigValue $Config "zjmfApiAccount" $env:ZJMF_API_ACCOUNT
     $apiPassword = Get-ConfigValue $Config "zjmfApiPassword" $env:ZJMF_API_PASSWORD
     $serverId = Get-ConfigValue $Config "serverId" $env:ZJMF_SERVER_ID
+    $githubRepo = Get-ConfigValue $Config "upstreamRepo" $script:UpstreamRepo
+    if ($githubRepo) { Post-Admin $BaseUrl $AdminToken "/api/admin/settings" @{ github_repo = $githubRepo; github_branch = Get-ConfigValue $Config "githubBranch" "main"; github_workflow_file = Get-ConfigValue $Config "githubWorkflowFile" "deploy.yml" } }
     if ([string]::IsNullOrWhiteSpace($apiAccount) -or [string]::IsNullOrWhiteSpace($apiPassword) -or [string]::IsNullOrWhiteSpace($serverId)) {
         Write-Note "未填写魔方财务账号/API密钥/serverId，跳过初始化；可部署后进 /admin 手动添加。"
         return
@@ -485,6 +490,12 @@ Invoke-CommandLine (Get-WranglerCommand @("d1", "migrations", "apply", $database
 
 Write-Step "写入管理后台密钥"
 Invoke-CommandLine (Get-WranglerCommand @("secret", "put", "ADMIN_TOKEN")) $workerRoot $adminToken | Out-Null
+
+$webUpdateToken = Get-ConfigValue $Config "webUpdateGitHubToken" $env:WEB_UPDATE_GITHUB_TOKEN
+if ($webUpdateToken) {
+    Write-Step "写入网页更新 GitHub Token"
+    Invoke-CommandLine (Get-WranglerCommand @("secret", "put", "GITHUB_TOKEN")) $workerRoot $webUpdateToken | Out-Null
+}
 
 Write-Step "部署 Worker"
 Invoke-WranglerDeploy $workerRoot $workerName

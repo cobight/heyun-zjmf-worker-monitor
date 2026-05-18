@@ -18,14 +18,18 @@ async function sha256Hex(value) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function isAuthorized(request, env, repo) {
-  const header = request.headers.get('authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+async function matchesAdminToken(token, env, repo) {
   if (!token) return false;
   const currentHash = await repo.getSetting('admin_token_hash', '');
   if (currentHash) return await sha256Hex(token) === currentHash;
   const bootstrapToken = env.ADMIN_TOKEN || 'admin';
   return token === bootstrapToken;
+}
+
+async function isAuthorized(request, env, repo) {
+  const header = request.headers.get('authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  return await matchesAdminToken(token, env, repo);
 }
 
 async function readJson(request) {
@@ -75,12 +79,50 @@ function hostDisplayName(host) {
   return isIpAddress(name) || !name ? `服务器 #${id}` : String(name);
 }
 
-function publicHost(host) {
+function normalizeRepo(value) {
+  const text = String(value || '').trim().replace(/\.git$/i, '');
+  const match = text.match(/github\.com[:/](.+\/.+)$/i);
+  return (match ? match[1] : text).replace(/^\/+|\/+$/g, '');
+}
+
+function githubHeaders(token) {
+  const headers = {
+    accept: 'application/vnd.github+json',
+    'content-type': 'application/json; charset=utf-8',
+    'user-agent': 'zjmf-monitor-worker',
+    'x-github-api-version': '2022-11-28',
+  };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function githubUpdateConfig(repo, env) {
+  const githubRepo = normalizeRepo(await repo.getSetting('github_repo', env.GITHUB_REPOSITORY || env.GITHUB_REPO || ''));
+  return {
+    repo: githubRepo,
+    branch: await repo.getSetting('github_branch', env.GITHUB_BRANCH || env.GITHUB_REF_NAME || 'main'),
+    workflow: await repo.getSetting('github_workflow_file', env.GITHUB_WORKFLOW_FILE || 'deploy.yml'),
+    currentSha: String(env.APP_VERSION || env.WORKER_VERSION || '').trim(),
+    token: env.GITHUB_TOKEN || env.WEB_UPDATE_GITHUB_TOKEN || '',
+    fetcher: env.fetcher || ((input, init) => fetch(input, init)),
+  };
+}
+
+function githubActionsUrl(repo, workflow) {
+  return `https://github.com/${repo}/actions/workflows/${encodeURIComponent(workflow)}`;
+}
+
+function adminHost(host) {
   const id = host.id ?? host.hostid ?? host.product_id ?? host.uid ?? '';
+  const ip = host.ip || host.address || host.hostname || host.domain || '';
+  const tcpPort = host.tcp_port || host.port || host.service_port || host.listen_port || '';
   return {
     id: String(id),
     name: hostDisplayName(host),
     status: host.status || host.state || host.power_status || '',
+    ip: ip ? String(ip) : '',
+    tcp_host: ip ? String(ip) : '',
+    tcp_port: tcpPort ? Number(tcpPort) : '',
   };
 }
 
@@ -143,7 +185,9 @@ export async function handleRequest(request, env) {
 
   if (url.pathname === '/api/admin/password' && request.method === 'POST') {
     const body = await readJson(request);
+    const oldPassword = String(body?.old_password || '').trim();
     const password = String(body?.password || '').trim();
+    if (!(await matchesAdminToken(oldPassword, env, repo))) return json({ error: 'INVALID_OLD_PASSWORD' }, 400);
     if (!password) return json({ error: 'INVALID_PASSWORD' }, 400);
     await repo.setSetting('admin_token_hash', await sha256Hex(password));
     return json({ ok: true });
@@ -161,7 +205,7 @@ export async function handleRequest(request, env) {
     }, env.fetcher || ((input, init) => fetch(input, init)));
     const hosts = await client.getHosts(Math.floor(Date.now() / 1000));
     if (!hosts) return json({ error: client.lastError || 'HOSTS_FETCH_FAILED' }, 502);
-    return json({ hosts: hosts.map(publicHost).filter((host) => host.id) });
+    return json({ hosts: hosts.map(adminHost).filter((host) => host.id) });
   }
 
   if (url.pathname === '/api/admin/events' && request.method === 'GET') {
@@ -178,6 +222,45 @@ export async function handleRequest(request, env) {
     return json(await notifier.send('ZJMF 测试通知', '这是一条来自管理后台的测试通知。', 'info'));
   }
 
+  if (url.pathname === '/api/admin/update/check' && request.method === 'GET') {
+    const cfg = await githubUpdateConfig(repo, env);
+    if (!cfg.repo) return json({ ok: true, configured: false, message: '未配置 GitHub 仓库' });
+    const latestUrl = `https://api.github.com/repos/${cfg.repo}/commits/${encodeURIComponent(cfg.branch)}`;
+    const res = await cfg.fetcher(latestUrl, { headers: githubHeaders(cfg.token) });
+    if (!res.ok) return json({ ok: false, configured: true, error: 'GITHUB_CHECK_FAILED', status: res.status }, 502);
+    const data = await res.json();
+    const latestSha = String(data.sha || '').trim();
+    const currentSha = cfg.currentSha;
+    const updateAvailable = currentSha && latestSha ? !latestSha.startsWith(currentSha) && !currentSha.startsWith(latestSha) : null;
+    return json({
+      ok: true,
+      configured: true,
+      repo: cfg.repo,
+      branch: cfg.branch,
+      workflow: cfg.workflow,
+      current_sha: currentSha,
+      latest_sha: latestSha,
+      latest_message: String(data.commit?.message || '').split('\n')[0],
+      update_available: updateAvailable,
+      actions_url: githubActionsUrl(cfg.repo, cfg.workflow),
+    });
+  }
+
+  if (url.pathname === '/api/admin/update/dispatch' && request.method === 'POST') {
+    const cfg = await githubUpdateConfig(repo, env);
+    if (!cfg.repo) return json({ error: 'GITHUB_REPO_NOT_CONFIGURED' }, 400);
+    if (!cfg.token) return json({ error: 'GITHUB_TOKEN_NOT_CONFIGURED' }, 400);
+    const workflow = encodeURIComponent(cfg.workflow);
+    const endpoint = `https://api.github.com/repos/${cfg.repo}/actions/workflows/${workflow}/dispatches`;
+    const res = await cfg.fetcher(endpoint, {
+      method: 'POST',
+      headers: githubHeaders(cfg.token),
+      body: JSON.stringify({ ref: cfg.branch }),
+    });
+    if (!res.ok) return json({ error: 'GITHUB_DISPATCH_FAILED', status: res.status }, 502);
+    return json({ ok: true, repo: cfg.repo, branch: cfg.branch, workflow: cfg.workflow, actions_url: githubActionsUrl(cfg.repo, cfg.workflow) });
+  }
+
   if (url.pathname === '/api/admin/setup' && request.method === 'POST') {
     const body = await readJson(request);
     const provider = body?.provider || {};
@@ -192,7 +275,7 @@ export async function handleRequest(request, env) {
       ...server,
       name: server.name || `服务器 #${server.id}`,
       provider: server.provider || providerName,
-      check_method: server.check_method || 'api_only',
+      check_method: server.check_method || 'service_then_power',
       enabled: true,
       daily_reboot_limit: Number(server.daily_reboot_limit || 3),
       probe_timeout_ms: Number(server.probe_timeout_ms || body.settings?.api_timeout_ms || 10000),
@@ -229,7 +312,7 @@ export async function handleRequest(request, env) {
     const nextServer = {
       ...body,
       ip: Object.hasOwn(body, 'ip') ? body.ip : existing?.ip || '',
-      check_method: body.check_method || 'api_only',
+      check_method: body.check_method || 'service_then_power',
       scheduled_reboot: '',
     };
     await repo.upsertServer(nextServer, Math.floor(Date.now() / 1000));
