@@ -1,15 +1,15 @@
 @echo off
-chcp 65001 >nul
+chcp 936 >nul
 setlocal EnableExtensions
 
 cd /d "%~dp0"
 set "UPSTREAM_REPO=loqwe/heyun-zjmf-worker-monitor"
 set "GITHUB_REPO_URL=https://github.com/%UPSTREAM_REPO%"
-set "REAL_FILE=%CD%\æ­¥éª¤1-ä¸€é”®å®‰è£….bat"
+set "REAL_FILE=%CD%\²½Öè1-Ò»¼ü°²×°.bat"
 set "REAL_URL=%GITHUB_REPO_URL%/releases/download/release-step1-bat-v1/step1-install.bat"
 
 if not exist "%REAL_FILE%" (
-  echo GitHub ä»“åº“åœ°å€ï¼š%GITHUB_REPO_URL%
+  echo GitHub ²Ö¿âµØÖ·£º%GITHUB_REPO_URL%
   powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%REAL_URL%' -OutFile '%REAL_FILE%' -UseBasicParsing"
   if errorlevel 1 exit /b 1
 )
@@ -17,4 +17,4 @@ if not exist "%REAL_FILE%" (
 call "%REAL_FILE%" %*
 exit /b %ERRORLEVEL%
 
-rem æ­¥éª¤1-ä¸‹è½½å¹¶å¯åŠ¨çœŸå®å®‰è£…è„šæœ¬
+rem ²½Öè1-ÏÂÔØ²¢Æô¶¯ÕæÊµ°²×°½Å±¾
