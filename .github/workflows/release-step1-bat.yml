@@ -1,0 +1,28 @@
+name: 发布步骤1安装脚本附件
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'windows-one-click-deploy/步骤1-一键安装脚本.bat'
+      - '.github/workflows/release-step1-bat.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 发布 Release 附件
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release-step1-bat-v1
+          name: release-step1-bat-v1
+          files: windows-one-click-deploy/步骤1-一键安装脚本.bat
+          overwrite_files: true
