@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { handleRequest } from '../src/routes.js';
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
 
 class FakeStatement {
   constructor(data, sql) {
@@ -40,6 +45,10 @@ class FakeStatement {
   }
 
   async first() {
+    if (this.sql.includes('SELECT value FROM settings WHERE key')) {
+      const value = this.data.settings[this.args[0]];
+      return value == null ? null : { value };
+    }
     if (this.sql.includes('SELECT * FROM providers WHERE name')) {
       return this.data.providers.find((provider) => provider.name === this.args[0]) || null;
     }
@@ -91,6 +100,10 @@ class FakeStatement {
       this.data.deletedServers.push(this.args[0]);
       return {};
     }
+    if (this.sql.includes('INSERT INTO settings')) {
+      this.data.settings[this.args[0]] = this.args[1];
+      return {};
+    }
     throw new Error(`Unexpected SQL: ${this.sql}`);
   }
 }
@@ -108,12 +121,14 @@ class FakeD1 {
 function env(overrides = {}) {
   return {
     ADMIN_TOKEN: 'admin-password',
+    fetcher: overrides.fetcher,
     DB: new FakeD1({
       settings: {
         pushplus_token: 'pushplus-secret',
         suspect_threshold: '2',
         reboot_cooldown: '300',
         recover_timeout: '300',
+        ...(overrides.settings || {}),
       },
       providers: [
         {
@@ -167,6 +182,73 @@ test('管理接口缺少 ZJMF_ADMIN_TOKEN 对应的 Bearer Token 时拒绝访问
   const res = await handleRequest(new Request('https://worker.example/api/admin/overview'), env());
 
   assert.equal(res.status, 401);
+});
+
+test('D1 修改后的管理密码优先于部署时 ADMIN_TOKEN', async () => {
+  const testEnv = env({ settings: { admin_token_hash: sha256('new-password') } });
+  const oldRes = await handleRequest(new Request('https://worker.example/api/admin/overview', {
+    headers: { authorization: 'Bearer admin-password' },
+  }), testEnv);
+  const newRes = await handleRequest(new Request('https://worker.example/api/admin/overview', {
+    headers: { authorization: 'Bearer new-password' },
+  }), testEnv);
+
+  assert.equal(oldRes.status, 401);
+  assert.equal(newRes.status, 200);
+});
+
+test('管理后台可以修改登录密码', async () => {
+  const testEnv = env();
+  const res = await handleRequest(new Request('https://worker.example/api/admin/password', {
+    method: 'POST',
+    headers: { authorization: 'Bearer admin-password', 'content-type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ password: 'changed-password' }),
+  }), testEnv);
+
+  assert.equal(res.status, 200);
+  assert.equal(testEnv.DB.data.settings.admin_token_hash, sha256('changed-password'));
+});
+
+test('管理后台可以自动获取魔方财务产品列表', async () => {
+  const testEnv = env({
+    fetcher: async (url) => {
+      if (String(url).includes('login_api')) return new Response(JSON.stringify({ jwt: 'jwt-1' }));
+      return new Response(JSON.stringify({ data: { host: [{ id: '4075', name: '主服务器', ip: '203.0.113.10' }] } }));
+    },
+  });
+  const res = await handleRequest(new Request('https://worker.example/api/admin/zjmf/hosts', {
+    method: 'POST',
+    headers: { authorization: 'Bearer admin-password', 'content-type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({ api_base_url: 'https://api.example/v1', api_account: 'acct', api_password: 'key' }),
+  }), testEnv);
+  const data = await res.json();
+
+  assert.equal(res.status, 200);
+  assert.equal(data.hosts[0].id, '4075');
+  assert.equal(data.hosts[0].name, '主服务器');
+  assert.equal(data.hosts[0].ip, undefined);
+});
+
+test('初始化接口一次保存服务商、服务器、监控参数和通知设置', async () => {
+  const testEnv = env();
+  const res = await handleRequest(new Request('https://worker.example/api/admin/setup', {
+    method: 'POST',
+    headers: { authorization: 'Bearer admin-password', 'content-type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({
+      provider: { name: 'heyunidc', display_name: '核云', api_base_url: 'https://api.example/v1', api_account: 'acct', api_password: 'key' },
+      server: { id: '4075', name: '主服务器', provider: 'heyunidc', check_method: 'api_only', daily_reboot_limit: 5 },
+      settings: { check_interval: 120, api_timeout_ms: 15000 },
+      notification: { enabled: true, type: 'pushplus', pushplus_token: 'push-token' },
+    }),
+  }), testEnv);
+
+  assert.equal(res.status, 200);
+  assert.equal(testEnv.DB.data.providerWrites[0].api_account, 'acct');
+  assert.equal(testEnv.DB.data.serverWrites[0].id, '4075');
+  assert.equal(testEnv.DB.data.settings.check_interval, '120');
+  assert.equal(testEnv.DB.data.settings.api_timeout, '15');
+  assert.equal(testEnv.DB.data.settings.pushplus_token, 'push-token');
+  assert.equal(testEnv.DB.data.settings.setup_completed, '1');
 });
 
 test('管理概览返回配置并仅隐藏 pushplus token 和服务器 IP', async () => {

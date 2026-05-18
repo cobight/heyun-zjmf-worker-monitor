@@ -8,6 +8,15 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
 
   assert.match(html, /管理面板/);
   assert.match(html, /ZJMF_ADMIN_TOKEN/);
+  assert.match(html, /四步初始化向导/);
+  assert.match(html, /自动获取产品列表/);
+  assert.match(html, /魔方财务登录邮箱或手机号/);
+  assert.match(html, /魔方财务产品 ID/);
+  assert.match(html, /修改管理密码/);
+  assert.match(html, /setup_completed/);
+  assert.match(html, /\/api\/admin\/zjmf\/hosts/);
+  assert.match(html, /\/api\/admin\/setup/);
+  assert.match(html, /\/api\/admin\/password/);
   assert.match(html, /\/api\/admin\/overview/);
   assert.match(html, /\/api\/admin\/events/);
   assert.match(html, /\/api\/admin\/servers\//);

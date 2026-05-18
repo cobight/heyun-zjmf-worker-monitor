@@ -44,7 +44,13 @@ export class D1Repository {
       webhook_template: raw.webhook_template || DEFAULT_SETTINGS.webhook_template,
       pushplus_token: raw.pushplus_token || '',
       timezone: raw.timezone || 'Asia/Shanghai',
+      setup_completed: raw.setup_completed || '0',
     };
+  }
+
+  async getSetting(key, fallback = '') {
+    const row = await this.db.prepare('SELECT value FROM settings WHERE key = ?1').bind(key).first();
+    return row?.value ?? fallback;
   }
 
   async listEnabledServers() {

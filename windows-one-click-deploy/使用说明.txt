@@ -1,0 +1,68 @@
+基础命令
+
+直接双击：
+
+一键部署.cmd
+
+脚本会要求你输入：
+
+Cloudflare API Token
+Cloudflare Account ID
+GitHub 仓库地址
+ZJMF_ADMIN_TOKEN 网站密码（管理后台密码）
+
+如果 Token 能访问多个 Cloudflare 账户，脚本只会提示检测结果，不会自动替你选择账号；请手动输入要部署的 Account ID。
+
+ZJMF_ADMIN_TOKEN 网站密码会要求输入两次确认。两次都直接回车时，默认密码为 admin。部署后可以在管理面板的设置页修改密码。
+
+第一次运行会自动生成本地配置文件：
+
+one-click.config.json
+
+脚本会把确认后的管理后台密码写入配置文件，并作为 Worker Secret 注入 Cloudflare。
+
+如果你想部署后自动添加监控项，再编辑：
+
+zjmfApiAccount
+zjmfApiPassword
+serverId
+
+如果要用 HTTP(S) + TCP + API 三步检测，建议再填写：
+
+httpUrl
+tcpHost
+tcpPort
+
+只检查环境：
+
+pwsh -File .\deploy-one-click.ps1 -PreflightOnly
+
+确认配置：
+
+pwsh -File .\deploy-one-click.ps1 -PrepareOnly
+
+正式部署：
+
+pwsh -File .\deploy-one-click.ps1
+
+其他命令：
+
+强制重新下载源码：
+pwsh -File .\deploy-one-click.ps1 -RefreshSource
+
+使用本地源码：
+pwsh -File .\deploy-one-click.ps1 -SourceRoot D:\你的路径\heyun-zjmf-worker-monitor
+
+只部署，不初始化监控配置：
+pwsh -File .\deploy-one-click.ps1 -SkipSeed
+
+如果 Wrangler 新版本在 Windows 上崩溃，可指定旧版本：
+pwsh -File .\deploy-one-click.ps1 -WranglerVersion 4.90.1
+
+不想浏览器登录 Cloudflare 时，可先设置环境变量：
+
+$env:CLOUDFLARE_API_TOKEN = "你的 Cloudflare API Token"
+$env:CLOUDFLARE_ACCOUNT_ID = "你的 Cloudflare Account ID"
+
+注意：
+one-click.config.json 会保存管理密码和魔方财务 API 密钥，已经加入 .gitignore，不要上传到 GitHub。

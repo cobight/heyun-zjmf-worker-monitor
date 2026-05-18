@@ -3,6 +3,7 @@ import { D1Repository } from './repository.js';
 import { Notifier } from './notifier.js';
 import { renderAdminPage } from './admin-page.js';
 import { renderStatusPage } from './status-page.js';
+import { ZjmfClient } from './zjmf-client.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -11,10 +12,20 @@ function json(data, status = 200) {
   });
 }
 
-function isAuthorized(request, env) {
-  const token = env.ADMIN_TOKEN || '';
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function isAuthorized(request, env, repo) {
   const header = request.headers.get('authorization') || '';
-  return token && header === `Bearer ${token}`;
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (!token) return false;
+  const currentHash = await repo.getSetting('admin_token_hash', '');
+  if (currentHash) return await sha256Hex(token) === currentHash;
+  const bootstrapToken = env.ADMIN_TOKEN || 'admin';
+  return token === bootstrapToken;
 }
 
 async function readJson(request) {
@@ -58,6 +69,21 @@ function adminServers(servers, status) {
   });
 }
 
+function hostDisplayName(host) {
+  const id = host.id ?? host.hostid ?? host.product_id ?? host.uid ?? '';
+  const name = host.name || host.title || host.domain || host.hostname || '';
+  return isIpAddress(name) || !name ? `服务器 #${id}` : String(name);
+}
+
+function publicHost(host) {
+  const id = host.id ?? host.hostid ?? host.product_id ?? host.uid ?? '';
+  return {
+    id: String(id),
+    name: hostDisplayName(host),
+    status: host.status || host.state || host.power_status || '',
+  };
+}
+
 async function publicStatus(repo) {
   const servers = (await repo.listStatus()).map(publicServer);
   const ids = servers.map((server) => String(server.id));
@@ -96,7 +122,7 @@ export async function handleRequest(request, env) {
   }
 
   if (!url.pathname.startsWith('/api/admin/')) return json({ error: 'NOT_FOUND' }, 404);
-  if (!isAuthorized(request, env)) return json({ error: 'UNAUTHORIZED' }, 401);
+  if (!(await isAuthorized(request, env, repo))) return json({ error: 'UNAUTHORIZED' }, 401);
 
   if (url.pathname === '/api/admin/overview' && request.method === 'GET') {
     const settings = await repo.getSettings();
@@ -108,6 +134,29 @@ export async function handleRequest(request, env) {
       status,
       events: await repo.listEvents(50),
     });
+  }
+
+  if (url.pathname === '/api/admin/password' && request.method === 'POST') {
+    const body = await readJson(request);
+    const password = String(body?.password || '').trim();
+    if (!password) return json({ error: 'INVALID_PASSWORD' }, 400);
+    await repo.setSetting('admin_token_hash', await sha256Hex(password));
+    return json({ ok: true });
+  }
+
+  if (url.pathname === '/api/admin/zjmf/hosts' && request.method === 'POST') {
+    const body = await readJson(request);
+    if (!body?.api_base_url || !body?.api_account || !body?.api_password) {
+      return json({ error: 'INVALID_PROVIDER' }, 400);
+    }
+    const client = new ZjmfClient({
+      api_base_url: body.api_base_url,
+      api_account: body.api_account,
+      api_password: body.api_password,
+    }, env.fetcher || ((input, init) => fetch(input, init)));
+    const hosts = await client.getHosts(Math.floor(Date.now() / 1000));
+    if (!hosts) return json({ error: client.lastError || 'HOSTS_FETCH_FAILED' }, 502);
+    return json({ hosts: hosts.map(publicHost).filter((host) => host.id) });
   }
 
   if (url.pathname === '/api/admin/events' && request.method === 'GET') {
@@ -122,6 +171,37 @@ export async function handleRequest(request, env) {
   if (url.pathname === '/api/admin/notify/test' && request.method === 'POST') {
     const notifier = new Notifier(await repo.getSettings(), (input, init) => fetch(input, init));
     return json(await notifier.send('ZJMF 测试通知', '这是一条来自管理后台的测试通知。', 'info'));
+  }
+
+  if (url.pathname === '/api/admin/setup' && request.method === 'POST') {
+    const body = await readJson(request);
+    const provider = body?.provider || {};
+    const server = body?.server || {};
+    if (!provider.api_base_url || !provider.api_account || !provider.api_password || !server.id) {
+      return json({ error: 'INVALID_SETUP' }, 400);
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const providerName = provider.name || 'heyunidc';
+    await repo.upsertProvider({ ...provider, name: providerName, display_name: provider.display_name || '核云' }, now);
+    await repo.upsertServer({
+      ...server,
+      name: server.name || `服务器 #${server.id}`,
+      provider: server.provider || providerName,
+      check_method: server.check_method || 'api_only',
+      enabled: true,
+      daily_reboot_limit: Number(server.daily_reboot_limit || 3),
+      probe_timeout_ms: Number(server.probe_timeout_ms || body.settings?.api_timeout_ms || 10000),
+    }, now);
+    await repo.setSetting('check_interval', Number(body.settings?.check_interval || 300));
+    await repo.setSetting('api_timeout', Math.max(1, Math.ceil(Number(body.settings?.api_timeout_ms || 60000) / 1000)));
+    await repo.setSetting('default_daily_reboot_limit', Number(server.daily_reboot_limit || 3));
+    if (body.notification?.enabled) {
+      await repo.setSetting('webhook_type', body.notification.type || 'pushplus');
+      await repo.setSetting('webhook_url', body.notification.webhook_url || 'https://www.pushplus.plus/send');
+      await repo.setSetting('pushplus_token', body.notification.pushplus_token || '');
+    }
+    await repo.setSetting('setup_completed', '1');
+    return json({ ok: true });
   }
 
   if (url.pathname === '/api/admin/providers' && request.method === 'POST') {
