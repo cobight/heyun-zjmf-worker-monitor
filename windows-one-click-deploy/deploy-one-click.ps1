@@ -71,6 +71,20 @@ function Read-AdminTokenWithConfirmation {
         Write-Host "两次输入不一致，请重新输入。" -ForegroundColor Yellow
     }
 }
+function Show-InteractiveGuide {
+    Write-Step "部署前准备"
+    Write-Host "1. 获取 Cloudflare API Token："
+    Write-Host "   打开 https://dash.cloudflare.com/profile/api-tokens"
+    Write-Host "   点击 创建令牌 -> API 令牌模板 -> 编辑 Cloudflare Workers -> 使用模板。"
+    Write-Host "   下一步点击 增加更多帐户，添加 D1 / 编辑。"
+    Write-Host "   账户资源选择 包括所有账户；区域资源选择 包括所有区域。"
+    Write-Host "   最后滑到最下面，点击 继续以显示摘要，再点 创建令牌。"
+    Write-Host "   Token 只显示一次，请复制保存，后面会要求粘贴。"
+    Write-Host "2. 获取 Cloudflare 账户 ID（不是 IP）："
+    Write-Host "   可复制脚本检测显示的账户 ID；也可在 Cloudflare 账户主页右侧三个点里点击 复制账户 ID。"
+    Write-Host "3. GitHub 仓库地址："
+    Write-Host "   复制你 Fork 后仓库的地址，例如 https://github.com/你的用户名/heyun-zjmf-worker-monitor。"
+}
 function Convert-GitHubRepoInput([string]$Value) {
     $text = $Value.Trim().TrimEnd("/")
     $text = $text -replace '\.git$', ''
@@ -285,6 +299,7 @@ function Read-Config {
 }
 function Invoke-InteractiveSetup($Config) {
     if (-not $Interactive) { return }
+    Show-InteractiveGuide
     if ([string]::IsNullOrWhiteSpace($env:CLOUDFLARE_API_TOKEN)) {
         $env:CLOUDFLARE_API_TOKEN = Read-RequiredText "请输入 Cloudflare API Token"
     }

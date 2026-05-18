@@ -19,6 +19,23 @@ Cloudflare Account ID
 GitHub 仓库地址
 ZJMF_ADMIN_TOKEN 网站密码（管理后台密码）
 
+这些信息的获取方式：
+
+1. Cloudflare API Token
+打开 https://dash.cloudflare.com/profile/api-tokens
+点击 创建令牌 -> API 令牌模板 -> 编辑 Cloudflare Workers -> 使用模板。
+下一步点击 增加更多帐户，添加 D1 / 编辑。
+账户资源选择 包括所有账户；区域资源选择 包括所有区域。
+最后滑到最下面，点击 继续以显示摘要，再点 创建令牌。
+Token 只显示一次，请复制保存，部署脚本会要求粘贴。
+
+2. Cloudflare 账户 ID（不是 IP）
+可以复制脚本检测显示的账户 ID；也可以在 Cloudflare 账户主页右侧三个点里点击 复制账户 ID。
+
+3. GitHub 仓库地址
+复制你 Fork 后仓库的地址，例如：
+https://github.com/你的用户名/heyun-zjmf-worker-monitor
+
 如果 Token 能访问多个 Cloudflare 账户，脚本只会提示检测结果，不会自动替你选择账号；请手动输入要部署的 Account ID。
 
 ZJMF_ADMIN_TOKEN 网站密码会要求输入两次确认。两次都直接回车时，默认密码为 admin。部署后可以在管理面板的设置页修改密码。
