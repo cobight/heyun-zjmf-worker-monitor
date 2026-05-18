@@ -28,10 +28,10 @@ cloudflare-worker/README.md
 如果你只想下载一个文件，直接使用：
 
 ```text
-windows-one-click-deploy/一键安装.bat
+windows-one-click-deploy/步骤1-一键安装.bat
 ```
 
-它会自动下载部署脚本，并在同目录生成 `one-click.config.jsonc`。
+它会自动下载 `步骤2-一键部署.bat`、部署脚本和配置模板，并在同目录生成 `one-click.config.jsonc`。
 
 ## 快速部署（5 步完成）
 
