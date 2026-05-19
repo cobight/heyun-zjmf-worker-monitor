@@ -2,47 +2,6 @@
 
 基于 5 状态机架构的云服务器监控，Worker 版支持 API / HTTP(S) / TCP 探测、异常自动重启、24 小时重启上限、Webhook/pushplus 通知和管理后台。
 
-## Cloudflare Worker 版
-
-已新增 Worker/D1 免费部署版本，路径：
-
-```text
-cloudflare-worker/
-```
-
-说明：
-- 使用 Cloudflare Cron Trigger 定时执行检查
-- 使用 D1 保存服务商、服务器、运行状态和事件
-- 支持魔方财务 API 状态检测与 `hard_reboot`
-- 支持 Webhook / pushplus 通知
-- Worker 环境不能执行 ICMP ping，当前支持魔方财务 API、HTTP(S) 和 TCP 端口探测。
-
-部署文档见：
-
-```text
-cloudflare-worker/README.md
-```
-
-## EdgeOne Pages 版
-
-已新增 EdgeOne Pages + Cloud Functions 版本，路径：
-
-```text
-edgeone-pages/
-```
-
-EdgeOne 版使用 KV 保存配置和事件，定时监控由外部定时器调用 `/api/admin/run`。部署说明见：
-
-```text
-edgeone-pages/README.md
-```
-
-方式二：部署按钮
-
-[使用 EdgeOne Pages 部署](https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Floqwe%2Fheyun-zjmf-worker-monitor%2Ftree%2Fmain%2Fedgeone-pages&project-name=zjmf-monitor-edgeone&install-command=npm+install&build-command=npm+test&output-directory=.&env=ADMIN_TOKEN%2CZJMF_KV&env-description=ADMIN_TOKEN+%E6%98%AF%E7%AE%A1%E7%90%86%E5%90%8E%E5%8F%B0%E5%88%9D%E5%A7%8B%E5%AF%86%E7%A0%81%EF%BC%9BZJMF_KV+%E6%98%AF+EdgeOne+KV+%E7%BB%91%E5%AE%9A%E5%8F%98%E9%87%8F%E5%90%8D%E3%80%82%E9%83%A8%E7%BD%B2%E5%90%8E%E8%BF%98%E9%9C%80%E8%A6%81%E5%9C%A8+EdgeOne+Pages+%E9%A1%B9%E7%9B%AE%E4%B8%AD%E7%BB%91%E5%AE%9A+KV%E3%80%82&env-link=https%3A%2F%2Fpages.edgeone.ai%2Fzh%2Fdocument%2Fpages-kv-integration)
-
-方式三：手动部署见 `edgeone-pages/README.md`。
-
 ## 快速开始
 
 ### 方式一：使用安装脚本（⭐ 推荐）
@@ -63,7 +22,15 @@ edgeone-pages/README.md
 5. 脚本会自动检查依赖、下载部署文件、生成配置并启动部署。
 6. 完成后按日志里的真实地址访问状态页和管理后台。
 
-### 方式二：手动部署
+### 方式二：EdgeOne Pages 部署按钮
+
+[使用 EdgeOne Pages 部署](https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Floqwe%2Fheyun-zjmf-worker-monitor%2Ftree%2Fmain%2Fedgeone-pages&project-name=zjmf-monitor-edgeone&install-command=npm+install&build-command=npm+test&output-directory=.&env=ADMIN_TOKEN%2CZJMF_KV&env-description=ADMIN_TOKEN+%E6%98%AF%E7%AE%A1%E7%90%86%E5%90%8E%E5%8F%B0%E5%88%9D%E5%A7%8B%E5%AF%86%E7%A0%81%EF%BC%9BZJMF_KV+%E6%98%AF+EdgeOne+KV+%E7%BB%91%E5%AE%9A%E5%8F%98%E9%87%8F%E5%90%8D%E3%80%82%E9%83%A8%E7%BD%B2%E5%90%8E%E8%BF%98%E9%9C%80%E8%A6%81%E5%9C%A8+EdgeOne+Pages+%E9%A1%B9%E7%9B%AE%E4%B8%AD%E7%BB%91%E5%AE%9A+KV%E3%80%82&env-link=https%3A%2F%2Fpages.edgeone.ai%2Fzh%2Fdocument%2Fpages-kv-integration)
+
+说明：EdgeOne 版使用 KV 保存配置和事件，定时监控由外部定时器调用 `/api/admin/run`。部署按钮会创建 Pages 项目并填入基础构建参数；首次部署后仍需在 EdgeOne 控制台绑定 KV 到变量名 `ZJMF_KV`。
+
+详细说明见 `edgeone-pages/README.md`。
+
+### 方式三：手动部署 Cloudflare Worker
 
 1. Fork 本仓库。
 2. 准备 Cloudflare API Token：
