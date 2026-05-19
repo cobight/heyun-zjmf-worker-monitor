@@ -104,4 +104,44 @@ test('管理初始化弹窗支持滚动显示完整内容', async () => {
 
   assert.match(html, /#setupWizardModal,#notifyModal,#editModal\{align-items:start;overflow:auto\}/);
   assert.match(html, /#setupWizardModal \.setup-modal\{width:min\(1180px,calc\(100vw - 48px\)\);scrollbar-gutter:stable\}/);
+  assert.match(html, /HTTP\(S\) \+ API（EdgeOne 选这个）/);
+  assert.match(html, /三步检测<\/option>/);
+  assert.match(html, /probeTcpField is-hidden/);
+  assert.doesNotMatch(html, /三步检测：HTTP\(S\) \+ TCP \+ API/);
+});
+
+test('EdgeOne 初始化默认使用 HTTP(S) + API', async () => {
+  const kv = new MemoryKV();
+  const env = { ADMIN_TOKEN: 'admin', ZJMF_KV: kv };
+  const setup = await handleEdgeOneRequest(new Request('https://edgeone.example/api/admin/setup', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer admin',
+      'content-type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify({
+      providers: [{
+        name: 'heyunidc',
+        display_name: '核云',
+        api_base_url: 'https://api.example/v1',
+        api_account: 'account',
+        api_password: 'secret',
+      }],
+      servers: [{
+        id: '1001',
+        name: '测试服务器',
+        provider: 'heyunidc',
+      }],
+      settings: {},
+      notification: { enabled: false },
+    }),
+  }), env);
+
+  assert.equal(setup.status, 200);
+  const overview = await handleEdgeOneRequest(new Request('https://edgeone.example/api/admin/overview', {
+    headers: { authorization: 'Bearer admin' },
+  }), env);
+  const data = await overview.json();
+
+  assert.equal(data.servers[0].check_method, 'http_then_api');
 });

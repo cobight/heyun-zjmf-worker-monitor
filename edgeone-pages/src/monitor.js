@@ -33,9 +33,9 @@ const METHOD_TEXT = {
   api_only: '魔方财务 API',
   http: 'HTTP(S)',
   tcp: 'TCP 端口',
-  http_then_api: 'HTTP(S) + API 复核',
+  http_then_api: 'HTTP(S) + API',
   tcp_then_api: 'TCP + API 复核',
-  service_then_power: '三步检测：HTTP(S) + TCP + API',
+  service_then_power: '三步检测',
 };
 
 function formatNotifyTime(now, timezone = 'Asia/Shanghai') {

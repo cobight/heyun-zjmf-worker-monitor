@@ -380,7 +380,7 @@ export async function handleRequest(request, env) {
         ...item,
         name: item.name || `服务器 #${item.id}`,
         provider: item.provider || firstProvider.name || 'heyunidc',
-        check_method: item.check_method || 'service_then_power',
+        check_method: item.check_method || 'http_then_api',
         enabled: true,
         daily_reboot_limit: Number(item.daily_reboot_limit || 3),
         probe_timeout_ms: Number(item.probe_timeout_ms || body.settings?.api_timeout_ms || 10000),
@@ -418,7 +418,7 @@ export async function handleRequest(request, env) {
     const nextServer = {
       ...body,
       ip: Object.hasOwn(body, 'ip') ? body.ip : existing?.ip || '',
-      check_method: body.check_method || 'service_then_power',
+      check_method: body.check_method || 'http_then_api',
       scheduled_reboot: '',
     };
     await repo.upsertServer(nextServer, Math.floor(Date.now() / 1000));
