@@ -101,19 +101,37 @@ async function checkApiHealth(client, server, runtime, now) {
   const started = Date.now();
   const status = await client.getStatus(server.id, now);
   const statusValue = status == null ? `ERROR: ${client.lastError || 'N/A'}` : String(status);
+  const normalizedStatus = String(status ?? '').trim().toLowerCase();
+  const health = status == null || !normalizedStatus ? null : normalizedStatus === 'on';
   return {
-    ok: status != null && String(status).toLowerCase() === 'on',
+    ok: health,
     statusValue,
-    error: status == null ? client.lastError || 'API 状态获取失败' : '',
+    error: health === null ? client.lastError || 'API 状态获取失败' : '',
     latencyMs: Date.now() - started,
   };
 }
 
+function combinedHealth(results) {
+  if (results.some((item) => item.ok === true)) return true;
+  if (results.some((item) => item.ok === false)) return false;
+  return null;
+}
+
+function apiRecoveryAction(api) {
+  if (api.ok === null) return 'none';
+  const status = String(api.statusValue || '').trim().toLowerCase();
+  if (status === 'off') return 'power_on';
+  if (status === 'on') return '';
+  return 'reboot';
+}
+
 function combinedProbe(results, overrides = {}) {
+  const hasOkOverride = Object.prototype.hasOwnProperty.call(overrides, 'ok');
+  const hasErrorOverride = Object.prototype.hasOwnProperty.call(overrides, 'error');
   return {
-    ok: overrides.ok ?? results.some((item) => item.ok),
+    ok: hasOkOverride ? overrides.ok : combinedHealth(results),
     statusValue: results.map((item) => item.statusValue).filter(Boolean).join(' -> '),
-    error: results.filter((item) => !item.ok).map((item) => item.error).filter(Boolean).join('；'),
+    error: hasErrorOverride ? overrides.error : results.filter((item) => item.ok === false).map((item) => item.error).filter(Boolean).join('；'),
     latencyMs: results.reduce((sum, item) => sum + Number(item.latencyMs || 0), 0),
     recoveryAction: overrides.recoveryAction,
   };
@@ -128,10 +146,14 @@ async function checkServiceThenPower({ client, server, fetcher, tcpConnector, no
   const http = await checkHttpHealth({ server, fetcher });
   const tcp = await checkTcpHealth({ server, connector: tcpConnector });
   const api = await checkApiHealth(client, server, {}, now);
-  const powerState = String(api.statusValue || '').toLowerCase();
   const serviceOk = http.ok || tcp.ok;
-  const recoveryAction = serviceOk ? '' : powerState === 'off' ? 'power_on' : powerState === 'on' ? 'reboot' : 'none';
-  return combinedProbe([http, tcp, api], { ok: serviceOk, recoveryAction });
+  if (serviceOk) {
+    return combinedProbe([http, tcp, api], { ok: true, error: '', recoveryAction: '' });
+  }
+  if (api.ok === null) {
+    return combinedProbe([http, tcp, api], { ok: null, recoveryAction: 'none' });
+  }
+  return combinedProbe([http, tcp, api], { ok: api.ok, error: '', recoveryAction: apiRecoveryAction(api) });
 }
 
 async function probeServer({ client, server, fetcher, tcpConnector, now }) {
@@ -141,11 +163,17 @@ async function probeServer({ client, server, fetcher, tcpConnector, now }) {
   if (method === 'service_then_power') return await checkServiceThenPower({ client, server, fetcher, tcpConnector, now });
   if (method === 'http_then_api') {
     const http = await checkHttpHealth({ server, fetcher });
-    return http.ok ? http : await checkApiHealth(client, server, {}, now);
+    if (http.ok) return http;
+    const api = await checkApiHealth(client, server, {}, now);
+    if (api.ok === null) return api;
+    return combinedProbe([http, api], { ok: api.ok, error: '', recoveryAction: apiRecoveryAction(api) });
   }
   if (method === 'tcp_then_api') {
     const tcp = await checkTcpHealth({ server, connector: tcpConnector });
-    return tcp.ok ? tcp : await checkApiHealth(client, server, {}, now);
+    if (tcp.ok) return tcp;
+    const api = await checkApiHealth(client, server, {}, now);
+    if (api.ok === null) return api;
+    return combinedProbe([tcp, api], { ok: api.ok, error: '', recoveryAction: apiRecoveryAction(api) });
   }
   return await checkApiHealth(client, server, {}, now);
 }

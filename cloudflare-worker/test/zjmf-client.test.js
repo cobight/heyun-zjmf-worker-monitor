@@ -31,6 +31,11 @@ test('extractStatus 兼容常见状态字段', () => {
   assert.equal(extractStatus({ state: 'unknown' }), 'unknown');
 });
 
+test('extractStatus 兼容纯文本 on/off 状态', () => {
+  assert.equal(extractStatus('on'), 'on');
+  assert.equal(extractStatus(' off '), 'off');
+});
+
 test('login 使用 query string 传账号和密钥', async () => {
   const calls = [];
   const fetcher = async (url, init) => {

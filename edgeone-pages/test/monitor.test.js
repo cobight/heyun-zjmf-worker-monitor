@@ -1,0 +1,113 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { runMonitorOnce } from '../src/monitor.js';
+import { extractStatus } from '../src/zjmf-client.js';
+
+class FakeRepo {
+  constructor(data) {
+    this.data = data;
+    this.events = [];
+  }
+
+  async getSettings() { return this.data.settings; }
+  async listEnabledServers() { return this.data.servers; }
+  async getProvider(name) { return this.data.providers[name]; }
+  async updateProvider(provider) { this.updatedProvider = { ...provider }; }
+  async getRuntime(id) { return this.data.runtimes[id]; }
+  async saveRuntime(id, runtime) { this.data.runtimes[id] = runtime; }
+  async addEvent(event) { this.events.push(event); }
+  async countRecentReboots() { return 0; }
+  async addCheckResult(result) { this.lastCheckResult = result; }
+}
+
+const settings = {
+  suspect_threshold: 3,
+  reboot_cooldown: 300,
+  recover_timeout: 300,
+  default_daily_reboot_limit: 3,
+  api_timeout: 60,
+  timezone: 'Asia/Shanghai',
+  check_interval: 300,
+};
+
+function suspectRuntime() {
+  return {
+    state: 'suspect',
+    consecutive_failures: 2,
+    consecutive_successes: 0,
+    last_check_time: 0,
+    last_reboot_time: 1000,
+    reboot_count_today: 0,
+    reboot_date: '',
+    last_status_value: '',
+    state_changed_at: 1000,
+    first_failure_at: 1000,
+    reboot_initiated_at: 0,
+    scheduled_reboot_date: '',
+  };
+}
+
+test('EdgeOne 兼容纯文本 on/off 状态', () => {
+  assert.equal(extractStatus('on'), 'on');
+  assert.equal(extractStatus(' off '), 'off');
+});
+
+test('EdgeOne HTTP+API 在 HTTP 失败但 API 为 on 时判定正常', async () => {
+  const repo = new FakeRepo({
+    settings,
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: '二步HTTP', provider: 'heyun', check_method: 'http_then_api', http_url: 'https://web.example/health', daily_reboot_limit: 3 }],
+    runtimes: { 4075: suspectRuntime() },
+  });
+  const fetcher = async (url) => {
+    if (String(url).includes('web.example')) return new Response('down', { status: 503 });
+    if (String(url).includes('/module/status')) return new Response('on');
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, now: 1778382000 });
+
+  assert.equal(repo.data.runtimes['4075'].state, 'healthy');
+  assert.equal(repo.data.runtimes['4075'].last_status_value, 'HTTP 503 -> on');
+});
+
+test('EdgeOne 三步检测在 HTTP TCP 失败但 API 为 on 时判定正常', async () => {
+  const repo = new FakeRepo({
+    settings,
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: '三步', provider: 'heyun', check_method: 'service_then_power', http_url: 'https://web.example/health', tcp_host: 'tcp.example', tcp_port: 996, daily_reboot_limit: 3 }],
+    runtimes: { 4075: suspectRuntime() },
+  });
+  const calls = [];
+  const fetcher = async (url) => {
+    calls.push(String(url));
+    if (String(url).includes('web.example')) return new Response('down', { status: 503 });
+    if (String(url).includes('/module/status')) return new Response(JSON.stringify({ data: { status: 'on' } }));
+    if (String(url).includes('/hard_reboot')) return new Response(JSON.stringify({ msg: '成功' }));
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, tcpConnector: async () => false, now: 1778382000 });
+
+  assert.equal(repo.data.runtimes['4075'].state, 'healthy');
+  assert.equal(calls.some((url) => url.includes('/hard_reboot')), false);
+});
+
+test('EdgeOne API 请求失败时返回 null 且不推进异常计数', async () => {
+  const repo = new FakeRepo({
+    settings,
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: 'API', provider: 'heyun', check_method: 'api_only', daily_reboot_limit: 3 }],
+    runtimes: { 4075: null },
+  });
+  const fetcher = async (url) => {
+    if (String(url).includes('/module/status')) throw new Error('network down');
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, now: 1778382000 });
+
+  assert.equal(repo.data.runtimes['4075'].state, 'healthy');
+  assert.equal(repo.events.length, 0);
+});

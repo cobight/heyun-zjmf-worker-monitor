@@ -106,7 +106,7 @@ test('runMonitorOnce 发送不泄露目标地址的中文详细通知', async ()
       return new Response('{}', { status: 200 });
     }
     if (value.includes('web.example')) return new Response('down', { status: 503 });
-    if (value.includes('/module/status')) return new Response(JSON.stringify({ data: { status: 'on' } }));
+    if (value.includes('/module/status')) return new Response(JSON.stringify({ data: { status: 'off' } }));
     return new Response(JSON.stringify({ jwt: 'jwt' }));
   };
   const captureFetcher = async (url, init) => {
@@ -120,7 +120,7 @@ test('runMonitorOnce 发送不泄露目标地址的中文详细通知', async ()
   assert.equal(hookBodies[0].title, '【信息】综合 - 检测异常');
   assert.match(hookBodies[0].message, /监控项：综合 \(#4075\)/);
   assert.match(hookBodies[0].message, /检测方式：三步检测：HTTP\(S\) \+ TCP \+ API/);
-  assert.match(hookBodies[0].message, /最近结果：HTTP 503 -> TCP 996 closed -> on/);
+  assert.match(hookBodies[0].message, /最近结果：HTTP 503 -> TCP 996 closed -> off/);
   assert.doesNotMatch(hookBodies[0].message, /web\.example|tcp\.example/);
 });
 
@@ -201,6 +201,46 @@ test('runMonitorOnce 支持 TCP 端口检测成功', async () => {
   assert.equal(repo.data.runtimes['443'].last_status_value, 'TCP 443 open');
 });
 
+test('runMonitorOnce HTTP+API 在 HTTP 失败但 API 为 on 时判定正常', async () => {
+  const repo = new FakeRepo({
+    settings: { suspect_threshold: 3, reboot_cooldown: 300, recover_timeout: 300, default_daily_reboot_limit: 3, api_timeout: 60, timezone: 'Asia/Shanghai', check_interval: 300 },
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: '二步HTTP', provider: 'heyun', check_method: 'http_then_api', http_url: 'https://web.example/health', daily_reboot_limit: 3 }],
+    runtimes: { 4075: { state: 'suspect', consecutive_failures: 2, consecutive_successes: 0, last_check_time: 0, last_reboot_time: 1000, reboot_count_today: 0, reboot_date: '', last_status_value: '', state_changed_at: 1000, first_failure_at: 1000, reboot_initiated_at: 0, scheduled_reboot_date: '' } },
+  });
+  const fetcher = async (url) => {
+    if (String(url).includes('web.example')) return new Response('down', { status: 503 });
+    if (String(url).includes('/module/status')) return new Response(JSON.stringify({ data: { status: 'on' } }));
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, now: 1778382000 });
+
+  assert.equal(repo.data.runtimes['4075'].state, 'healthy');
+  assert.equal(repo.data.runtimes['4075'].last_status_value, 'HTTP 503 -> on');
+});
+
+test('runMonitorOnce TCP+API 在 TCP 失败且 API 为 off 时执行开机', async () => {
+  const repo = new FakeRepo({
+    settings: { suspect_threshold: 3, reboot_cooldown: 300, recover_timeout: 300, default_daily_reboot_limit: 3, api_timeout: 60, timezone: 'Asia/Shanghai', check_interval: 300 },
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: '二步TCP', provider: 'heyun', check_method: 'tcp_then_api', tcp_host: 'tcp.example', tcp_port: 996, daily_reboot_limit: 3 }],
+    runtimes: { 4075: { state: 'suspect', consecutive_failures: 2, consecutive_successes: 0, last_check_time: 0, last_reboot_time: 1000, reboot_count_today: 0, reboot_date: '', last_status_value: '', state_changed_at: 1000, first_failure_at: 1000, reboot_initiated_at: 0, scheduled_reboot_date: '' } },
+  });
+  const calls = [];
+  const fetcher = async (url) => {
+    calls.push(String(url));
+    if (String(url).includes('/module/status')) return new Response(JSON.stringify({ data: { status: 'off' } }));
+    if (String(url).includes('/module/on')) return new Response(JSON.stringify({ msg: '成功' }));
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, tcpConnector: async () => false, now: 1778382000 });
+
+  assert.equal(calls.some((url) => url.includes('/module/on')), true);
+  assert.equal(calls.some((url) => url.includes('/hard_reboot')), false);
+});
+
 test('runMonitorOnce 三步检测会依次执行 HTTP TCP API 后再判断异常', async () => {
   const repo = new FakeRepo({
     settings: { suspect_threshold: 3, reboot_cooldown: 300, recover_timeout: 300, default_daily_reboot_limit: 3, api_timeout: 60, timezone: 'Asia/Shanghai', check_interval: 300 },
@@ -245,7 +285,7 @@ test('runMonitorOnce 三步检测确认关机后执行开机而不是重启', as
   assert.equal(calls.some((url) => url.includes('/hard_reboot')), false);
 });
 
-test('runMonitorOnce 三步检测确认开机但服务不可达后执行重启', async () => {
+test('runMonitorOnce 三步检测在 HTTP TCP 失败但 API 为 on 时判定正常', async () => {
   const repo = new FakeRepo({
     settings: { suspect_threshold: 3, reboot_cooldown: 300, recover_timeout: 300, default_daily_reboot_limit: 3, api_timeout: 60, timezone: 'Asia/Shanghai', check_interval: 300 },
     providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
@@ -263,8 +303,27 @@ test('runMonitorOnce 三步检测确认开机但服务不可达后执行重启',
 
   await runMonitorOnce({ repo, fetcher, tcpConnector: async () => false, now: 1778382000 });
 
-  assert.equal(calls.some((url) => url.includes('/hard_reboot')), true);
+  assert.equal(repo.data.runtimes['4075'].state, 'healthy');
+  assert.equal(calls.some((url) => url.includes('/hard_reboot')), false);
   assert.equal(calls.some((url) => url.includes('/module/on')), false);
+});
+
+test('runMonitorOnce API 请求失败时返回三态 null 且不推进异常计数', async () => {
+  const repo = new FakeRepo({
+    settings: { suspect_threshold: 3, reboot_cooldown: 300, recover_timeout: 300, default_daily_reboot_limit: 3, api_timeout: 60, timezone: 'Asia/Shanghai', check_interval: 300 },
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: 'API', provider: 'heyun', check_method: 'api_only', daily_reboot_limit: 3 }],
+    runtimes: { 4075: null },
+  });
+  const fetcher = async (url) => {
+    if (String(url).includes('/module/status')) throw new Error('network down');
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, now: 1778382000 });
+
+  assert.equal(repo.data.runtimes['4075'].state, 'healthy');
+  assert.equal(repo.events.length, 0);
 });
 
 test('runMonitorOnce 用最近 24 小时重启次数判断上限', async () => {

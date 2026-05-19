@@ -22,12 +22,19 @@ export function extractHosts(data) {
   return findHosts(data?.data ?? data);
 }
 
+function textValue(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
 export function extractStatus(data) {
+  if (typeof data === 'string') return textValue(data);
   const raw = data?.data;
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    return raw.status || raw.state || raw.power_status || raw.power_state || null;
+    return textValue(raw.status ?? raw.state ?? raw.power_status ?? raw.power_state);
   }
-  return data?.status || data?.state || null;
+  return textValue(data?.status ?? data?.state);
 }
 
 function withTimeout(timeoutSeconds) {
@@ -39,6 +46,20 @@ function withTimeout(timeoutSeconds) {
 async function readJson(response) {
   try {
     return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+async function readPayload(response) {
+  try {
+    const text = await response.text();
+    if (!text.trim()) return {};
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
   } catch {
     return {};
   }
@@ -114,7 +135,7 @@ export class ZjmfClient {
     url.searchParams.set('type', 'host');
     const response = await this.request('GET', url, now);
     if (!response?.ok) return null;
-    return extractStatus(await readJson(response));
+    return extractStatus(await readPayload(response));
   }
 
   async hardReboot(hostId, now) {
