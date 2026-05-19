@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { handleEdgeOneRequest, edgeOneTcpConnector } from '../src/handler.js';
+import { onRequest } from '../cloud-functions/index.js';
 
 class MemoryKV {
   constructor() {
@@ -71,4 +72,25 @@ test('EdgeOne TCP 连接器不依赖 Node 原生模块', async () => {
     () => edgeOneTcpConnector('127.0.0.1', 996, 1000),
     /EdgeOne Pages 暂不支持 TCP 原生端口探测/,
   );
+});
+
+test('Cloud Function 入口支持全局 KV 绑定', async () => {
+  const previous = globalThis.ZJMF_KV;
+  globalThis.ZJMF_KV = new MemoryKV();
+  try {
+    const res = await onRequest({
+      request: new Request('https://edgeone.example/'),
+      env: { ADMIN_TOKEN: 'admin' },
+    });
+    const html = await res.text();
+
+    assert.equal(res.status, 200);
+    assert.match(html, /首次配置|管理面板/);
+  } finally {
+    if (previous === undefined) {
+      delete globalThis.ZJMF_KV;
+    } else {
+      globalThis.ZJMF_KV = previous;
+    }
+  }
 });
