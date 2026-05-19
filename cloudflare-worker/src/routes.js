@@ -338,8 +338,13 @@ export async function handleRequest(request, env) {
     const body = await readJson(request);
     const provider = body?.provider || {};
     const server = body?.server || {};
-    if (!provider.api_base_url || !provider.api_account || !provider.api_password || !server.id) {
-      return json({ error: 'INVALID_SETUP' }, 400);
+    const missing = [];
+    if (!provider.api_base_url) missing.push('provider.api_base_url');
+    if (!provider.api_account) missing.push('provider.api_account');
+    if (!provider.api_password) missing.push('provider.api_password');
+    if (!server.id) missing.push('server.id');
+    if (missing.length) {
+      return json({ error: 'INVALID_SETUP', message: '初始化信息不完整', missing }, 400);
     }
     const now = Math.floor(Date.now() / 1000);
     const providerName = provider.name || 'heyunidc';

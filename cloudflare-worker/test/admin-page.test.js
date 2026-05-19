@@ -17,6 +17,7 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /四步初始化向导/);
   assert.match(html, /首次打开网站/);
   assert.match(html, /id="setupWizardModal"/);
+  assert.match(html, /id="setupMsg"/);
   assert.match(html, /id="setupStep"/);
   assert.match(html, /下一步/);
   assert.match(html, /上一步/);
@@ -79,6 +80,7 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /id="toast"/);
   assert.match(html, /操作中/);
   assert.match(html, /async function task/);
+  assert.match(html, /showSetupMsg/);
   assert.match(html, /wasDisabled/);
   assert.match(html, /const scrub=/);
   assert.match(html, /background-size:50px 50px/);
