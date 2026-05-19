@@ -2,7 +2,7 @@
 
 这是新增的 EdgeOne Pages + Cloud Functions 版本，和 `cloudflare-worker/` 并存，不影响原 Cloudflare Worker 部署。
 
-[![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Floqwe%2Fheyun-zjmf-worker-monitor%2Ftree%2Fmain%2Fedgeone-pages&project-name=zjmf-monitor-edgeone&install-command=npm+install&build-command=npm+test&output-directory=.&env=ADMIN_TOKEN%2CZJMF_KV&env-description=ADMIN_TOKEN+%E6%98%AF%E7%AE%A1%E7%90%86%E5%90%8E%E5%8F%B0%E5%88%9D%E5%A7%8B%E5%AF%86%E7%A0%81%EF%BC%9BZJMF_KV+%E6%98%AF+EdgeOne+KV+%E7%BB%91%E5%AE%9A%E5%8F%98%E9%87%8F%E5%90%8D%E3%80%82%E9%83%A8%E7%BD%B2%E5%90%8E%E8%BF%98%E9%9C%80%E8%A6%81%E5%9C%A8+EdgeOne+Pages+%E9%A1%B9%E7%9B%AE%E4%B8%AD%E7%BB%91%E5%AE%9A+KV%E3%80%82&env-link=https%3A%2F%2Fpages.edgeone.ai%2Fzh%2Fdocument%2Fpages-kv-integration)
+<a href="https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Floqwe%2Fheyun-zjmf-worker-monitor%2Ftree%2Fmain%2Fedgeone-pages&project-name=zjmf-monitor-edgeone&install-command=npm+install&build-command=npm+test&output-directory=.&env=ADMIN_TOKEN%2CZJMF_KV&env-description=ADMIN_TOKEN+是管理后台初始密码；ZJMF_KV+是+EdgeOne+KV+绑定变量名。部署后还需要在+EdgeOne+Pages+项目中绑定+KV。&env-link=https%3A%2F%2Fpages.edgeone.ai%2Fzh%2Fdocument%2Fpages-kv-integration"><img alt="使用 EdgeOne Pages 部署" src="https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg"></a>
 
 > 部署按钮会帮你创建 EdgeOne Pages 项目并填入基础构建参数；KV 仍需在 EdgeOne 控制台绑定到变量名 `ZJMF_KV`。
 

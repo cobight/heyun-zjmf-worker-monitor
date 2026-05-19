@@ -24,7 +24,7 @@
 
 ### 方式二：EdgeOne Pages 复用现有仓库部署按钮
 
-[![使用现有仓库部署到 EdgeOne](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Floqwe%2Fheyun-zjmf-worker-monitor%2Ftree%2Fmain%2Fedgeone-pages&project-name=zjmf-monitor-edgeone&install-command=npm+install&build-command=npm+test&output-directory=.&env=ADMIN_TOKEN%2CZJMF_KV&env-description=这个按钮会复用现有的+GitHub+仓库+loqwe%2Fheyun-zjmf-worker-monitor+里的+edgeone-pages+目录；不是新建一个新的 GitHub 仓库。ADMIN_TOKEN+是管理后台初始密码；ZJMF_KV+是+EdgeOne+KV+绑定变量名。部署后还需要在+EdgeOne+Pages+项目中绑定+KV。&env-link=https%3A%2F%2Fpages.edgeone.ai%2Fzh%2Fdocument%2Fpages-kv-integration)
+<a href="https://edgeone.ai/pages/new?repository-url=https%3A%2F%2Fgithub.com%2Floqwe%2Fheyun-zjmf-worker-monitor%2Ftree%2Fmain%2Fedgeone-pages&project-name=zjmf-monitor-edgeone&install-command=npm+install&build-command=npm+test&output-directory=.&env=ADMIN_TOKEN%2CZJMF_KV&env-description=这个按钮会复用现有的+GitHub+仓库+loqwe%2Fheyun-zjmf-worker-monitor+里的+edgeone-pages+目录；不是新建一个新的 GitHub 仓库。ADMIN_TOKEN+是管理后台初始密码；ZJMF_KV+是+EdgeOne+KV+绑定变量名。部署后还需要在+EdgeOne+Pages+项目中绑定+KV。&env-link=https%3A%2F%2Fpages.edgeone.ai%2Fzh%2Fdocument%2Fpages-kv-integration"><img alt="使用现有仓库部署到 EdgeOne" src="https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg"></a>
 
 说明：EdgeOne 版使用 KV 保存配置和事件，定时监控由外部定时器调用 `/api/admin/run`。这个按钮只是把现有 GitHub 仓库的 `edgeone-pages` 目录接入 EdgeOne Pages；首次部署后仍需在 EdgeOne 控制台绑定 KV 到变量名 `ZJMF_KV`。
 
