@@ -105,9 +105,9 @@ test('管理初始化弹窗支持滚动显示完整内容', async () => {
   assert.match(html, /#setupWizardModal,#notifyModal,#editModal\{align-items:start;overflow:auto\}/);
   assert.match(html, /#setupWizardModal \.setup-modal\{width:min\(1180px,calc\(100vw - 48px\)\);scrollbar-gutter:stable\}/);
   assert.match(html, /HTTP\(S\) \+ API（EdgeOne 选这个）/);
-  assert.match(html, /三步检测<\/option>/);
+  assert.match(html, /HTTP\(S\) \+ TCP \+ API<\/option>/);
   assert.match(html, /probeTcpField is-hidden/);
-  assert.doesNotMatch(html, /三步检测：HTTP\(S\) \+ TCP \+ API/);
+  assert.doesNotMatch(html, /三步检测/);
 });
 
 test('EdgeOne 初始化默认使用 HTTP(S) + API', async () => {

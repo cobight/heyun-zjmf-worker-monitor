@@ -38,7 +38,7 @@ function displayName(server) {
 
 function checkMethod(server) {
   const value = String(server.check_method || 'api_only').toLowerCase();
-  if (value === 'service_then_power') return '三步检测';
+  if (value === 'service_then_power') return 'HTTP(S) + TCP + API';
   if (value === 'http_then_api') return 'HTTP(S) + API';
   if (value.includes('tcp')) return 'tcp';
   if (value.includes('http')) return 'http';

@@ -35,7 +35,7 @@ const METHOD_TEXT = {
   tcp: 'TCP 端口',
   http_then_api: 'HTTP(S) + API',
   tcp_then_api: 'TCP + API 复核',
-  service_then_power: '三步检测',
+  service_then_power: 'HTTP(S) + TCP + API',
 };
 
 function formatNotifyTime(now, timezone = 'Asia/Shanghai') {
