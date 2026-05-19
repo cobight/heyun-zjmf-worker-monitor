@@ -2,6 +2,16 @@
 
 专为魔方财务云服务器设计，支持一键脚本快速部署到 Cloudflare Workers，也可部署到 EdgeOne Pages；无需自建服务器，零服务器成本运行，内置异常检测、自动开机/重启、通知推送和可视化管理后台。
 
+## 界面预览
+
+### 管理面板
+
+![管理面板](docs/images/admin-panel.png)
+
+### 状态页
+
+![状态页](docs/images/status-page.png)
+
 ## 快速开始
 
 ### 方式一：使用安装脚本（⭐ 推荐）
