@@ -24,7 +24,7 @@
 
 ### 方式二：EdgeOne Pages 复用现有仓库部署
 
-打开 [EdgeOne Pages 控制台](https://console.cloud.tencent.com/edgeone/pages)，点击 **导入其它仓库**，选择 `loqwe/heyun-zjmf-worker-monitor`。
+打开 [EdgeOne Pages 控制台](https://console.tencentcloud.com/edgeone/pages)，点击 **导入其它仓库**，选择 `loqwe/heyun-zjmf-worker-monitor`。
 
 填写建议：
 
