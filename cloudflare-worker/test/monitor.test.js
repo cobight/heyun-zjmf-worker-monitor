@@ -22,6 +22,9 @@ class FakeRepo {
     this.recentRebootQuery = { id, since };
     return this.data.recentReboots?.[id] ?? 0;
   }
+  async pruneCheckResults(retentionDays, now) {
+    this.pruneCheckResultsCall = { retentionDays, now };
+  }
 }
 
 test('runMonitorOnce 将连续异常服务器推进到 down 并执行重启', async () => {
@@ -285,4 +288,17 @@ test('runMonitorOnce 用最近 24 小时重启次数判断上限', async () => {
   assert.equal(repo.recentRebootQuery.since, 1778382000 - 86400);
   assert.equal(calls.some((url) => url.includes('/hard_reboot')), true);
   assert.equal(repo.data.runtimes['4075'].reboot_count_today, 2);
+});
+
+test('runMonitorOnce 按设置清理过期原始探测结果', async () => {
+  const repo = new FakeRepo({
+    settings: { suspect_threshold: 3, reboot_cooldown: 300, recover_timeout: 300, default_daily_reboot_limit: 3, api_timeout: 60, timezone: 'Asia/Shanghai', check_interval: 300, data_retention_days: 45 },
+    providers: {},
+    servers: [],
+    runtimes: {},
+  });
+
+  await runMonitorOnce({ repo, fetcher: async () => new Response('{}'), now: 1778382000 });
+
+  assert.deepEqual(repo.pruneCheckResultsCall, { retentionDays: 45, now: 1778382000 });
 });

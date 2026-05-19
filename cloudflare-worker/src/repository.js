@@ -36,6 +36,9 @@ export class D1Repository {
       recover_check_interval: numberSetting(raw.recover_check_interval, DEFAULT_SETTINGS.recover_check_interval),
       api_timeout: numberSetting(raw.api_timeout, DEFAULT_SETTINGS.api_timeout),
       default_daily_reboot_limit: numberSetting(raw.default_daily_reboot_limit, DEFAULT_SETTINGS.default_daily_reboot_limit),
+      data_retention_days: numberSetting(raw.data_retention_days, DEFAULT_SETTINGS.data_retention_days),
+      admin_overview_range: raw.admin_overview_range || DEFAULT_SETTINGS.admin_overview_range,
+      admin_monitor_range: raw.admin_monitor_range || DEFAULT_SETTINGS.admin_monitor_range,
       webhook_name: raw.webhook_name || DEFAULT_SETTINGS.webhook_name,
       webhook_url: raw.webhook_url || '',
       webhook_type: raw.webhook_type || 'custom',
@@ -108,6 +111,13 @@ export class D1Repository {
     await this.db.prepare('INSERT INTO check_results (server_id,ok,latency_ms,status_value,error,created_at) VALUES (?1,?2,?3,?4,?5,?6)')
       .bind(result.server_id, result.ok ? 1 : 0, Math.round(result.latency_ms || 0), result.status_value || '', result.error || '', result.created_at)
       .run();
+  }
+
+  async pruneCheckResults(retentionDays, now = Math.floor(Date.now() / 1000)) {
+    const days = Number(retentionDays || 0);
+    if (!Number.isFinite(days) || days <= 0) return;
+    const before = Math.floor(now - days * 24 * 60 * 60);
+    await this.db.prepare('DELETE FROM check_results WHERE created_at < ?1').bind(before).run();
   }
 
   async listRecentChecks(serverId, limit = 60) {

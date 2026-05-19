@@ -43,6 +43,14 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /新建监控项/);
   assert.match(html, /通知渠道/);
   assert.match(html, /系统更新/);
+  assert.match(html, /数据保留/);
+  assert.match(html, /D1 中原始探测结果的保留天数/);
+  assert.match(html, /name="data_retention_days"/);
+  assert.match(html, /后台默认值/);
+  assert.match(html, /后台分析页面默认时间范围/);
+  assert.match(html, /name="admin_overview_range"/);
+  assert.match(html, /name="admin_monitor_range"/);
+  assert.match(html, /id="systemSettingsForm"/);
   assert.match(html, /data-tab="update"/);
   assert.match(html, /检查更新/);
   assert.match(html, /确定更新/);
@@ -77,6 +85,8 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /24 小时重启上限/);
   assert.doesNotMatch(html, /每小时重启上限|每日重启上限/);
   assert.match(html, /api_timeout:Math\.max/);
+  assert.match(html, /data_retention_days:Number/);
+  assert.match(html, /admin_overview_range:b\.admin_overview_range/);
   assert.match(html, /function autoFillHttpUrl/);
   assert.match(html, /autoFillHttpUrl\(form\)/);
   assert.match(html, /autoFillHttpUrl\(\$\('serverForm'\)\)/);

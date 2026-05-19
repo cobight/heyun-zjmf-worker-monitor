@@ -198,5 +198,9 @@ export async function runMonitorOnce({ repo, fetcher = (input, init) => globalTh
     checked += 1;
   }
 
+  if (typeof repo.pruneCheckResults === 'function') {
+    await repo.pruneCheckResults(settings.data_retention_days, now);
+  }
+
   return { checked };
 }

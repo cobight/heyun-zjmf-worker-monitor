@@ -352,6 +352,27 @@ test('管理概览返回配置并仅隐藏 pushplus token 和服务器 IP', asyn
   assert.doesNotMatch(text, /pushplus-secret|203\.0\.113\.10/);
 });
 
+test('管理概览返回数据保留和后台分析默认范围配置', async () => {
+  const res = await handleRequest(
+    new Request('https://worker.example/api/admin/overview', {
+      headers: { authorization: 'Bearer admin-password' },
+    }),
+    env({
+      settings: {
+        data_retention_days: '45',
+        admin_overview_range: '7d',
+        admin_monitor_range: '30d',
+      },
+    }),
+  );
+  const data = await res.json();
+
+  assert.equal(res.status, 200);
+  assert.equal(data.settings.data_retention_days, 45);
+  assert.equal(data.settings.admin_overview_range, '7d');
+  assert.equal(data.settings.admin_monitor_range, '30d');
+});
+
 test('管理概览优先返回启用服务器，避免表单默认选中旧禁用记录', async () => {
   const res = await handleRequest(
     new Request('https://worker.example/api/admin/overview', {
