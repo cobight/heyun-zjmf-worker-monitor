@@ -17,7 +17,7 @@ class FakeRepo {
   async getRuntime(id) { return this.data.runtimes[id]; }
   async saveRuntime(id, runtime) { this.data.runtimes[id] = runtime; }
   async addEvent(event) { this.events.push(event); }
-  async countRecentReboots() { return 0; }
+  async countRecentReboots(id, since) { this.recentRebootQuery = { id, since }; return this.data.recentReboots?.[id] ?? 0; }
   async addCheckResult(result) { this.lastCheckResult = result; }
 }
 
@@ -133,4 +133,23 @@ test('EdgeOne 勾选失败阶段静默后只推送触发开机通知', async () 
 
   assert.deepEqual(repo.events.map((event) => event.label), ['确认宕机', '触发开机', '开机指令已发送']);
   assert.deepEqual(hookBodies.map((body) => body.title), ['【严重】API - 触发开机']);
+});
+
+test('EdgeOne 默认按每小时统计重启次数', async () => {
+  const repo = new FakeRepo({
+    settings: { ...settings, reboot_limit_window: 'hour' },
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: 'API', provider: 'heyun', check_method: 'api_only', daily_reboot_limit: 3 }],
+    runtimes: { 4075: { ...suspectRuntime(), last_reboot_time: 0 } },
+    recentReboots: { 4075: 1 },
+  });
+  const fetcher = async (url) => {
+    if (String(url).includes('/module/status')) return new Response('off');
+    if (String(url).includes('/power_on')) return new Response(JSON.stringify({ msg: '成功' }));
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, now: 1778382000 });
+
+  assert.equal(repo.recentRebootQuery.since, 1778382000 - 3600);
 });

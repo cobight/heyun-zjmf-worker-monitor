@@ -45,6 +45,14 @@ function formatNotifyTime(now, timezone = 'Asia/Shanghai') {
   });
 }
 
+function rebootLimitWindow(settings = {}) {
+  return settings.reboot_limit_window === 'day' ? 'day' : 'hour';
+}
+
+function rebootWindowText(settings = {}) {
+  return rebootLimitWindow(settings) === 'day' ? '24 小时' : '每小时';
+}
+
 function actionHint(label, nextRuntime, settings) {
   if (label === '检测异常') return `继续观察，连续失败 ${settings.suspect_threshold} 次后才会自动处理`;
   if (label === '确认宕机') return '已确认异常，准备按电源状态自动处理';
@@ -69,6 +77,7 @@ function buildTransitionNotice(server, oldState, nextRuntime, now, label, level,
   const stateText = `${STATE_TEXT[oldState] || oldState} -> ${STATE_TEXT[nextRuntime.state] || nextRuntime.state}`;
   const limit = server.daily_reboot_limit || settings.default_daily_reboot_limit;
   const rebootText = limit <= 0 ? `${nextRuntime.reboot_count_today || 0} / 不限` : `${nextRuntime.reboot_count_today || 0} / ${limit}`;
+  const windowText = rebootWindowText(settings);
   return {
     title: `【${LEVEL_TEXT[level] || level}】${name} - ${label || STATE_TEXT[nextRuntime.state] || nextRuntime.state}`,
     message: [
@@ -79,7 +88,7 @@ function buildTransitionNotice(server, oldState, nextRuntime, now, label, level,
       `检测方式：${method}`,
       `最近结果：${nextRuntime.last_status_value || '暂无'}`,
       `连续失败：${nextRuntime.consecutive_failures || 0} / ${settings.suspect_threshold}`,
-      `24 小时动作：${rebootText}`,
+      `重启次数：${rebootText}（${windowText}）`,
       `处理建议：${actionHint(label, nextRuntime, settings)}`,
       `时间：${formatNotifyTime(now, settings.timezone || 'Asia/Shanghai')}`,
     ].join('\n'),
@@ -146,9 +155,11 @@ function combinedProbe(results, overrides = {}) {
   };
 }
 
-function rebootWindowKey(date, timezone) {
+function rebootWindowKey(date, timezone, window = 'hour') {
   const parts = localDateParts(date, timezone);
-  return parts.dateKey;
+  if (window === 'day') return parts.dateKey;
+  const hour = Number.isFinite(parts.hour) ? String(parts.hour).padStart(2, '0') : '00';
+  return `${parts.dateKey}-${hour}`;
 }
 
 async function checkServiceThenPower({ client, server, fetcher, tcpConnector, now }) {
@@ -190,8 +201,9 @@ async function probeServer({ client, server, fetcher, tcpConnector, now }) {
 export async function runMonitorOnce({ repo, fetcher = (input, init) => globalThis.fetch(input, init), tcpConnector, now, date = new Date(now * 1000), force = false }) {
   const settings = await repo.getSettings();
   const notifier = new Notifier(settings, fetcher);
-  const rebootWindow = rebootWindowKey(date, settings.timezone || 'Asia/Shanghai');
-  const rebootWindowStart = now - 24 * 60 * 60;
+  const limitWindow = rebootLimitWindow(settings);
+  const rebootWindow = rebootWindowKey(date, settings.timezone || 'Asia/Shanghai', limitWindow);
+  const rebootWindowStart = now - (limitWindow === 'day' ? 24 * 60 * 60 : 60 * 60);
   const servers = await repo.listEnabledServers();
   let checked = 0;
 

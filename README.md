@@ -181,6 +181,7 @@ pip install requests
     "reboot_cooldown": 600,
     "recover_timeout": 300,
     "default_daily_reboot_limit": 3,
+    "reboot_limit_window": "hour",
     "webhook_url": "",
     "webhook_type": "custom",
     "log_level": "INFO"
@@ -226,7 +227,7 @@ python server_monitor.py --interval 60
 | `provider` | 对应provider的name | - |
 | `check_method` | 检测方式 | `api_only` |
 | `enabled` | 是否启用 | `true` |
-| `daily_reboot_limit` | 24 小时重启上限（0=不限，字段名沿用旧名称） | 全局默认 |
+| `daily_reboot_limit` | 单台服务器重启次数上限（0=不限，统计窗口由 `reboot_limit_window` 控制，字段名沿用旧名称） | 全局默认 |
 | `http_url` | HTTP(S) 探测地址 | 空 |
 | `http_expected_status` | HTTP 期望状态码，支持 `200-399,401` | `200-399` |
 | `tcp_host` | TCP 探测主机 | 空 |
@@ -240,7 +241,8 @@ python server_monitor.py --interval 60
 | `suspect_threshold` | 连续异常 N 次确认宕机 | `3` |
 | `reboot_cooldown` | 重启冷却时间（秒） | `600` |
 | `recover_timeout` | 重启后恢复等待超时（秒） | `300` |
-| `default_daily_reboot_limit` | 默认 24 小时重启上限（字段名沿用旧名称） | `3` |
+| `default_daily_reboot_limit` | 默认重启次数上限（字段名沿用旧名称） | `3` |
+| `reboot_limit_window` | 重启次数统计窗口：`hour`=每小时，`day`=24 小时 | `hour` |
 | `webhook_url` | 通知地址 | 空 |
 | `webhook_type` | 通知类型 | `custom` |
 | `log_level` | 日志级别（仅控制台输出） | `INFO` |
@@ -256,16 +258,28 @@ python server_monitor.py --interval 60
 | `tcp_then_api` | TCP 失败后再用魔方财务 API 复核 | 端口异常后再复核 |
 | `service_then_power` | 依次执行 HTTP(S)、TCP、API 三步检测；服务不可达时用 API 状态决定重启或开机 | 推荐用于自动恢复 |
 
-### Webhook通知类型（Python 本地版）
+### 支持的通知渠道（Cloudflare Worker / EdgeOne）
 
-| 类型 | 说明 |
-|------|------|
-| `custom` | 通用JSON格式 |
-| `dingtalk` | 钉钉机器人 |
-| `wecom` | 企业微信机器人 |
-| `telegram` | Telegram Bot |
+| 渠道 | 必填项 | 填写说明 |
+|------|--------|----------|
+| `pushplus` | Token | 默认推荐；选择后无需填写 Webhook URL，只填 PushPlus Token。 |
+| `bark` | Bark Key | 填写 Bark 设备 Key，用于 iOS 推送。 |
+| `telegram` | Bot Token、Chat ID | Token 填 Telegram Bot Token，接收目标填 Chat ID。 |
+| `feishu` | Webhook URL | 填写飞书机器人 Webhook 地址。 |
+| `wecom` | Webhook URL | 填写企业微信机器人 Webhook 地址。 |
+| `dingtalk` | Webhook URL、可选签名密钥 | 填写钉钉机器人地址；如果开启加签，再填写签名密钥。 |
+| `slack` | Webhook URL | 填写 Slack Incoming Webhook 地址。 |
+| `discord` | Webhook URL | 填写 Discord Webhook 地址。 |
+| `custom` | Webhook URL | 自定义 JSON Webhook，可在管理后台配置请求头和消息模板。 |
 
-> Cloudflare Worker / EdgeOne 版支持更多通知渠道：pushplus、Bark、Telegram、飞书机器人、企业微信机器人、钉钉机器人、Slack Webhook、Discord Webhook、自定义 Webhook。
+通知填写教程：
+
+1. 进入 **管理后台 → 通知 → 新建通知渠道**。
+2. 选择通知类型。
+3. 按上表填写 Token、接收目标或 Webhook URL。
+4. 如不想每次检测失败都提醒，可勾选 **失败阶段静默**；勾选后只在 **触发开机 / 触发重启 / 恢复成功 / 恢复超时** 时通知。
+5. 保存后点击 **测试**，收到测试消息即配置成功。
+
 > 本地 Python 版当前保留 `custom`、`dingtalk`、`wecom`、`telegram`。
 
 ## 状态转换与通知
@@ -284,7 +298,7 @@ python server_monitor.py --interval 60
 
 1. **疑似阈值**：首次异常进入suspect，连续N次才确认DOWN，避免误判
 2. **重启冷却**：两次重启之间至少间隔 `reboot_cooldown` 秒
-3. **24 小时上限**：每台服务器每 24 小时最多重启 `daily_reboot_limit` 次
+3. **重启上限**：默认每台服务器每小时最多重启 `daily_reboot_limit` 次，可把 `reboot_limit_window` 切到 `day` 改为 24 小时统计
 4. **恢复超时**：重启后超过 `recover_timeout` 秒未恢复，重新标记DOWN
 5. **JWT自动刷新**：2小时过期，提前10分钟自动重新登录
 
@@ -307,7 +321,7 @@ curl -X PUT -H "Authorization: JWT YOUR_TOKEN" "https://www.heyunidc.cn/v1/hosts
 ## 日志示例
 
 ```
-2026-05-09 22:00:00 [INFO] 配置加载：1 个服务商，0 个服务器，检查间隔 300s，疑似阈值 3次，24 小时重启上限 3次
+2026-05-09 22:00:00 [INFO] 配置加载：1 个服务商，0 个服务器，检查间隔 300s，疑似阈值 3次，每小时重启上限 3次
 2026-05-09 22:00:01 [INFO] [核云] 正在登录...
 2026-05-09 22:00:02 [INFO] [核云] 登录成功
 2026-05-09 22:00:03 [INFO]   [HEALTHY] 我的服务器 (ID:4075) status=on

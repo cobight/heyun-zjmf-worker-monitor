@@ -77,6 +77,7 @@ export class KVRepository {
       recover_check_interval: numberSetting(raw.recover_check_interval, DEFAULT_SETTINGS.recover_check_interval),
       api_timeout: numberSetting(raw.api_timeout, DEFAULT_SETTINGS.api_timeout),
       default_daily_reboot_limit: numberSetting(raw.default_daily_reboot_limit, DEFAULT_SETTINGS.default_daily_reboot_limit),
+      reboot_limit_window: raw.reboot_limit_window || DEFAULT_SETTINGS.reboot_limit_window,
       data_retention_days: numberSetting(raw.data_retention_days, DEFAULT_SETTINGS.data_retention_days),
       recover_success_threshold: numberSetting(raw.recover_success_threshold, DEFAULT_SETTINGS.recover_success_threshold),
       admin_overview_range: raw.admin_overview_range || DEFAULT_SETTINGS.admin_overview_range,

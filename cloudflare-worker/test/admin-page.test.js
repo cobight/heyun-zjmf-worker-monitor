@@ -105,10 +105,16 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.match(html, /webhook_template/);
   assert.match(html, /name="check_interval"/);
   assert.match(html, /name="api_timeout_ms"/);
-  assert.match(html, /24 小时重启上限/);
-  assert.doesNotMatch(html, /每小时重启上限|每日重启上限/);
+  assert.match(html, /统计窗口/);
+  assert.match(html, /<option value="hour" selected>每小时/);
+  assert.match(html, /<option value="day">24 小时/);
+  assert.match(html, /重启次数上限/);
+  assert.match(html, /name="reboot_limit_window"/);
+  assert.match(html, /name="default_daily_reboot_limit"/);
   assert.match(html, /api_timeout:Math\.max/);
   assert.match(html, /data_retention_days:Number/);
+  assert.match(html, /reboot_limit_window:b\.reboot_limit_window/);
+  assert.match(html, /default_daily_reboot_limit:Number/);
   assert.match(html, /site_title:b\.site_title/);
   assert.match(html, /timezone:b\.timezone/);
   assert.match(html, /suspect_threshold:Number/);
@@ -155,6 +161,8 @@ test('管理后台页面使用 ZJMF_ADMIN_TOKEN 登录且不嵌入真实密码',
   assert.doesNotMatch(html, /维护策略|maintenanceView|data-tab="maintenance"/);
   assert.match(html, /<option value="service_then_power" selected>/);
   assert.match(html, /通知开关/);
+  assert.match(html, /支持的通知渠道/);
+  assert.match(html, /保存后到“通知”页点测试通知/);
   assert.match(html, /失败阶段静默/);
   assert.match(html, /name="notify_failure_silence"/);
   assert.match(html, /不勾选时，检测异常\/确认宕机会通知/);

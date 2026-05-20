@@ -312,7 +312,7 @@ test('初始化接口一次保存服务商、服务器、监控参数和通知�
     body: JSON.stringify({
       provider: { name: 'heyunidc', display_name: '核云', api_base_url: 'https://api.example/v1', api_account: 'acct', api_password: 'key' },
       server: { id: '4075', name: '主服务器', provider: 'heyunidc', daily_reboot_limit: 5 },
-      settings: { check_interval: 120, api_timeout_ms: 15000 },
+      settings: { check_interval: 120, api_timeout_ms: 15000, reboot_limit_window: 'day' },
       notification: {
         enabled: true,
         type: 'telegram',
@@ -330,6 +330,8 @@ test('初始化接口一次保存服务商、服务器、监控参数和通知�
   assert.equal(testEnv.DB.data.serverWrites[0].check_method, 'service_then_power');
   assert.equal(testEnv.DB.data.settings.check_interval, '120');
   assert.equal(testEnv.DB.data.settings.api_timeout, '15');
+  assert.equal(testEnv.DB.data.settings.reboot_limit_window, 'day');
+  assert.equal(testEnv.DB.data.settings.default_daily_reboot_limit, '5');
   assert.equal(testEnv.DB.data.settings.notify_failure_silence, 'true');
   assert.equal(testEnv.DB.data.settings.webhook_type, 'telegram');
   assert.equal(testEnv.DB.data.settings.notify_token, 'bot-token');

@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   recover_check_interval: 60,
   api_timeout: 60,
   default_daily_reboot_limit: 3,
+  reboot_limit_window: 'hour',
   data_retention_days: 30,
   recover_success_threshold: 1,
   admin_overview_range: '24h',
