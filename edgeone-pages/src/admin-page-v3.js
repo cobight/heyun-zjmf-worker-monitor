@@ -23,15 +23,16 @@ export function renderAdminPage(options = {}) {
     <section class="setup-step" data-step="4">
       <div class="setupBanner"><b>第 4 步：通知渠道</b><p class="muted">这里仅填写通知配置。详细说明请看 README.md；不开启也能完成初始化，之后可在“通知”页补充。</p></div>
       <section class="notifySetupCard">
-          <label class="switchRow notifySwitch"><input name="notify_enabled" type="checkbox" style="width:auto;margin-top:4px;accent-color:#0f8f86"><span><b>通知开关</b><span class="fieldNote">开启后，异常、恢复、重启或开机会推送消息。</span></span></label>
           <div class="grid2">
-            <div><label>通知类型</label><select name="webhook_type"><option value="pushplus">pushplus</option><option value="bark">Bark</option><option value="telegram">Telegram</option><option value="feishu">飞书机器人</option><option value="wecom">企业微信机器人</option><option value="dingtalk">钉钉机器人</option><option value="slack">Slack Webhook</option><option value="discord">Discord Webhook</option><option value="custom">自定义 Webhook</option></select></div>
-            <div class="notifyTokenField"><label>Token / Bark Key / Bot Token</label><input name="notify_token" type="password" autocomplete="off" placeholder="按渠道填写"></div>
+            <div class="notifySwitchColumn">
+              <label class="switchRow notifySwitch"><input name="notify_enabled" type="checkbox" style="width:auto;margin-top:4px;accent-color:#0f8f86"><span><b>通知开关</b><span class="fieldNote">开启后，异常、恢复、重启或开机会推送消息。</span></span></label>
+              <label class="switchRow notifySwitch" style="margin-top:16px"><input type="hidden" name="notify_failure_silence" value="false"><input name="notify_failure_silence" type="checkbox" style="width:auto;margin-top:4px;accent-color:#0f8f86"><span><b>失败阶段静默</b><span class="fieldNote">不勾选时，检测异常/确认宕机会通知；勾选后，只在触发开机/触发重启/恢复成功/恢复超时时通知。</span></span></label>
+            </div>
+            <div><label>通知类型</label><select name="webhook_type"><option value="pushplus">pushplus</option><option value="bark">Bark</option><option value="telegram">Telegram</option><option value="feishu">飞书机器人</option><option value="wecom">企业微信机器人</option><option value="dingtalk">钉钉机器人</option><option value="slack">Slack Webhook</option><option value="discord">Discord Webhook</option><option value="custom">自定义 Webhook</option></select><div class="notifyTokenField"><label>Token / Bark Key / Bot Token</label><input name="notify_token" type="password" autocomplete="off" placeholder="按渠道填写"></div></div>
             <div class="notifyTargetField"><label>接收目标</label><input name="notify_target" autocomplete="off" placeholder="例如 Telegram Chat ID"></div>
             <div class="full notifyUrlField"><label>Webhook URL</label><input name="webhook_url" value="https://www.pushplus.plus/send"></div>
             <div class="full notifySecretField"><label>签名密钥（可选）</label><input name="notify_secret" type="password" autocomplete="off" placeholder="仅钉钉或自定义渠道使用"></div>
           </div>
-          <label class="switchRow notifySwitch" style="margin-top:16px"><input type="hidden" name="notify_failure_silence" value="false"><input name="notify_failure_silence" type="checkbox" style="width:auto;margin-top:4px;accent-color:#0f8f86"><span><b>失败阶段静默</b><span class="fieldNote">不勾选时，检测异常/确认宕机会通知；勾选后，只在触发开机/触发重启/恢复成功/恢复超时时通知。</span></span></label>
       </section>
       <div class="actions"><button class="btn ghost" type="button" data-step-prev="3">上一步</button><button class="btn ok" id="setupSubmitBtn" type="submit">完成初始化</button><button class="btn ghost" id="setupSkipBtn" type="button">先跳过通知</button></div>
     </section>
