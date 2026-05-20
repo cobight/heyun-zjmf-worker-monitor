@@ -111,3 +111,27 @@ test('EdgeOne API 请求失败时返回 null 且不推进异常计数', async ()
   assert.equal(repo.data.runtimes['4075'].state, 'healthy');
   assert.equal(repo.events.length, 0);
 });
+
+test('EdgeOne 连续失败达到设置次数后才推送异常通知', async () => {
+  const repo = new FakeRepo({
+    settings: { ...settings, suspect_threshold: 4, notify_failure_threshold: 4, webhook_url: 'https://hook.example/send', webhook_type: 'custom' },
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999999999 } },
+    servers: [{ id: '4075', name: 'API', provider: 'heyun', check_method: 'api_only', daily_reboot_limit: 3 }],
+    runtimes: { 4075: { ...suspectRuntime(), consecutive_failures: 3, last_reboot_time: 1000 } },
+  });
+  const hookBodies = [];
+  const fetcher = async (url, init) => {
+    if (String(url) === 'https://hook.example/send') {
+      hookBodies.push(JSON.parse(init.body));
+      return new Response('{}');
+    }
+    if (String(url).includes('/module/status')) return new Response('off');
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, now: 1100 });
+
+  assert.equal(repo.events[0].label, '确认宕机');
+  assert.equal(hookBodies.length, 1);
+  assert.equal(hookBodies[0].title, '【严重】API - 确认宕机');
+});

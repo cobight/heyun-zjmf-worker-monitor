@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   webhook_timeout: 10000,
   webhook_headers: '{\n  "Content-Type": "application/json"\n}',
   webhook_template: '{{message}}',
+  notify_failure_threshold: 4,
   notify_token: '',
   notify_target: '',
   notify_secret: '',

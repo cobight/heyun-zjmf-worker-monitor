@@ -83,6 +83,7 @@ export class KVRepository {
       webhook_timeout: numberSetting(raw.webhook_timeout, DEFAULT_SETTINGS.webhook_timeout),
       webhook_headers: raw.webhook_headers || DEFAULT_SETTINGS.webhook_headers,
       webhook_template: raw.webhook_template || DEFAULT_SETTINGS.webhook_template,
+      notify_failure_threshold: numberSetting(raw.notify_failure_threshold, DEFAULT_SETTINGS.notify_failure_threshold),
       pushplus_token: raw.pushplus_token || '',
       notify_token: raw.notify_token || raw.pushplus_token || DEFAULT_SETTINGS.notify_token,
       notify_target: raw.notify_target || DEFAULT_SETTINGS.notify_target,

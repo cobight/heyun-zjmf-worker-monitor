@@ -92,6 +92,7 @@ test('runMonitorOnce 发送不泄露目标地址的中文详细通知', async ()
       check_interval: 300,
       webhook_url: 'https://hook.example/send',
       webhook_type: 'custom',
+      notify_failure_threshold: 1,
     },
     providers: {
       heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999 },
@@ -122,6 +123,40 @@ test('runMonitorOnce 发送不泄露目标地址的中文详细通知', async ()
   assert.match(hookBodies[0].message, /检测方式：三步检测：HTTP\(S\) \+ TCP \+ API/);
   assert.match(hookBodies[0].message, /最近结果：HTTP 503 -> TCP 996 closed -> off/);
   assert.doesNotMatch(hookBodies[0].message, /web\.example|tcp\.example/);
+});
+
+test('runMonitorOnce 默认连续失败 4 次后才发送异常通知', async () => {
+  const repo = new FakeRepo({
+    settings: {
+      suspect_threshold: 3,
+      reboot_cooldown: 300,
+      recover_timeout: 300,
+      default_daily_reboot_limit: 3,
+      api_timeout: 60,
+      timezone: 'Asia/Shanghai',
+      check_interval: 300,
+      webhook_url: 'https://hook.example/send',
+      webhook_type: 'custom',
+      notify_failure_threshold: 4,
+    },
+    providers: { heyun: { name: 'heyun', api_base_url: 'https://api.example/v1', jwt_token: 'jwt', jwt_expire_at: 9999 } },
+    servers: [{ id: '4075', name: '综合', provider: 'heyun', check_method: 'service_then_power', http_url: 'https://web.example/health', tcp_host: 'tcp.example', tcp_port: 996, daily_reboot_limit: 3 }],
+    runtimes: { 4075: null },
+  });
+  const hookBodies = [];
+  const fetcher = async (url, init) => {
+    if (String(url) === 'https://hook.example/send') hookBodies.push(JSON.parse(init.body));
+    if (String(url).includes('web.example')) return new Response('down', { status: 503 });
+    if (String(url).includes('/module/status')) return new Response(JSON.stringify({ data: { status: 'off' } }));
+    return new Response(JSON.stringify({ jwt: 'jwt' }));
+  };
+
+  await runMonitorOnce({ repo, fetcher, tcpConnector: async () => false, now: 1778382000 });
+
+  assert.equal(repo.events.length, 1);
+  assert.equal(repo.events[0].label, '检测异常');
+  assert.equal(hookBodies.length, 0);
+  assert.equal(repo.data.runtimes['4075'].state, 'suspect');
 });
 
 test('runMonitorOnce 忽略旧配置中的定时重启字段', async () => {

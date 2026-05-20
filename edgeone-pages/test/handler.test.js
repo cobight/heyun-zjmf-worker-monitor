@@ -113,6 +113,11 @@ test('管理初始化弹窗支持滚动显示完整内容', async () => {
   assert.match(html, /<option value="dingtalk">钉钉机器人/);
   assert.match(html, /<option value="slack">Slack Webhook/);
   assert.match(html, /<option value="discord">Discord Webhook/);
+  assert.match(html, /连续失败几次后通知/);
+  assert.match(html, /name="notify_failure_threshold"/);
+  assert.match(html, /4 次（推荐）/);
+  assert.match(html, /notify_failure_threshold:4/);
+  assert.match(html, /notify_failure_threshold:Number\(b\.notify_failure_threshold\|\|4\)/);
   assert.match(html, /name="notify_token"/);
   assert.match(html, /name="notify_target"/);
   assert.match(html, /function syncNotifyFields/);
@@ -172,7 +177,7 @@ test('EdgeOne 初始化会保存更多通知渠道字段并脱敏返回', async 
       providers: [],
       servers: [],
       settings: {},
-      notification: { enabled: true, type: 'telegram', notify_token: 'bot-token', notify_target: '10086' },
+      notification: { enabled: true, type: 'telegram', notify_failure_threshold: 6, notify_token: 'bot-token', notify_target: '10086' },
     }),
   }), env);
   const overview = await handleEdgeOneRequest(new Request('https://edgeone.example/api/admin/overview', {
@@ -181,6 +186,7 @@ test('EdgeOne 初始化会保存更多通知渠道字段并脱敏返回', async 
   const data = await overview.json();
 
   assert.equal(data.settings.webhook_type, 'telegram');
+  assert.equal(data.settings.notify_failure_threshold, 6);
   assert.equal(data.settings.notify_token, '已配置');
   assert.equal(data.settings.notify_target, '10086');
 });

@@ -1,4 +1,4 @@
-import { TRANSITION_LABELS } from './constants.js';
+import { DEFAULT_SETTINGS, TRANSITION_LABELS } from './constants.js';
 import { Notifier } from './notifier.js';
 import { checkHttpHealth, checkTcpHealth } from './probe.js';
 import { createRuntime, advanceState, shouldReboot, applyRebootStart, applyRebootSuccess } from './state-machine.js';
@@ -86,6 +86,19 @@ function buildTransitionNotice(server, oldState, nextRuntime, now, label, level,
   };
 }
 
+function notifyFailureThreshold(settings) {
+  const value = Number(settings.notify_failure_threshold || DEFAULT_SETTINGS.notify_failure_threshold);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_SETTINGS.notify_failure_threshold;
+}
+
+function shouldSendTransitionNotice(label, nextRuntime, settings) {
+  const threshold = notifyFailureThreshold(settings);
+  const failures = Number(nextRuntime.consecutive_failures || 0);
+  if (label === '检测异常' || label === '确认宕机') return failures >= threshold;
+  if (label === '虚惊一场') return threshold <= 1;
+  return true;
+}
+
 async function recordTransition(repo, notifier, server, oldState, nextRuntime, now, options = {}) {
   if (oldState === nextRuntime.state) return;
   const label = options.label || transitionLabel(oldState, nextRuntime.state);
@@ -94,7 +107,9 @@ async function recordTransition(repo, notifier, server, oldState, nextRuntime, n
   const message = options.message || `${name}: ${oldState} -> ${nextRuntime.state}${label ? ` (${label})` : ''}`;
   const notice = buildTransitionNotice(server, oldState, nextRuntime, now, label, level, notifier.settings || {});
   await repo.addEvent({ server_id: server.id, old_state: oldState, new_state: nextRuntime.state, label, level, message, created_at: now });
-  await notifier.send(notice.title, notice.message, level);
+  if (shouldSendTransitionNotice(label, nextRuntime, notifier.settings || {})) {
+    await notifier.send(notice.title, notice.message, level);
+  }
 }
 
 async function checkApiHealth(client, server, runtime, now) {
